@@ -26,6 +26,16 @@ def seed():
     
     users_to_seed = [
         {
+        "name": "Sakshi Masane",
+        "email": "hr.sakshi@accops.com",
+        "personal_email": "sakshi.masane@gmail.com",
+        "password": "Accops@2026",
+        "role": RoleEnum.hr,
+        "department": "HR",
+        "doj": "2023-01-01",
+        "is_first_login": False
+        },
+        {
             "name": "Harshal Employee",
             "email": "harshal@accops.com",
             "personal_email": "harshal.employee@gmail.com",
