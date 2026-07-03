@@ -28,7 +28,7 @@ def seed():
         {
         "name": "Sakshi Masane",
         "email": "hr.sakshi@accops.com",
-        "personal_email": "sakshi.masane@gmail.com",
+        "personal_email": "sakshi.masane@accops.com",
         "password": "Accops@2026",
         "role": RoleEnum.hr,
         "department": "HR",
@@ -84,7 +84,7 @@ def seed():
         {
             "name": "Nidhi Thapa",
             "email": "hr.nidhi@accops.com",
-            "personal_email": "nidhi.thapa@gmail.com",
+            "personal_email": "nidhi.thapa@accops.com",
             "password": "Accops@2026",
             "role": RoleEnum.hr,
             "department": "HR",
