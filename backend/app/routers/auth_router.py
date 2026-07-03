@@ -7,10 +7,25 @@ import secrets
 
 from .. import schemas, models, auth, database
 from ..utils.email_utils import EmailService
+from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/auth", tags=["auth"])
 
+class ChangePasswordRequest(BaseModel):
+    new_password: str
 
+@router.post("/change-password")
+def change_password(
+    data: ChangePasswordRequest,
+    current_user: models.User = Depends(auth.get_current_user),
+    db: Session = Depends(database.get_db)
+):
+    """Logged-in user changes their own password."""
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+    current_user.hashed_password = auth.get_password_hash(data.new_password)
+    db.commit()
+    return {"message": "Password changed successfully."}
 @router.post("/login", response_model=schemas.Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.email == form_data.username).first()

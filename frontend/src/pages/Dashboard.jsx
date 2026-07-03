@@ -8,6 +8,9 @@ const Dashboard = () => {
   const [user, setUser] = useState(null);
   const [progress, setProgress] = useState(null);   // { completed, total, pct }
   const navigate = useNavigate();
+  const [showChangePassword, setShowChangePassword] = useState(false);
+const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
+const [passwordMsg, setPasswordMsg] = useState('');
 
   useEffect(() => {
     const fetchData = async () => {
@@ -59,6 +62,9 @@ const Dashboard = () => {
           <p style={{ fontWeight: '700', fontSize: '1rem', marginBottom: '0.25rem' }}>{user.name}</p>
           <p style={{ fontSize: '0.8rem', color: 'var(--primary-color)', textTransform: 'capitalize' }}>{user.role.replace('_', ' ')}</p>
         </div>
+        <button className="btn" onClick={() => setShowChangePassword(true)} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center', marginBottom: '0.5rem' }}>
+  Change Password
+</button>
         <button className="btn" onClick={handleLogout} style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-main)', display: 'flex', alignItems: 'center', gap: '0.5rem', justifyContent: 'center' }}>
           <LogOut size={16} /> Logout
         </button>
