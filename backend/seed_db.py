@@ -70,6 +70,16 @@ def seed():
             "department": "Demo",
             "doj": "2025-01-01",
             "is_first_login": False
+        },
+        {
+            "name": "Nidhi Thapa",
+            "email": "hr.nidhi@accops.com",
+            "personal_email": "nidhi.thapa@gmail.com",
+            "password": "Accops@2026",
+            "role": RoleEnum.hr,
+            "department": "HR",
+            "doj": "2023-01-01",
+            "is_first_login": False
         }
     ]
 
