@@ -113,49 +113,7 @@ const [passwordMsg, setPasswordMsg] = useState('');
     <option value="Finance and Accounts">Finance and Accounts</option>
     <option value="Customer Success">Customer Success</option>
   </select>
-  {showChangePassword && (
-  <div className="modal-overlay">
-    <div className="auth-card" style={{ maxWidth: '400px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2>Change Password</h2>
-        <button onClick={() => { setShowChangePassword(false); setPasswordMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
-      </div>
-      <div className="form-group">
-        <label>New Password</label>
-        <input type="password" className="form-control" value={passwordData.newPass} onChange={e => setPasswordData({...passwordData, newPass: e.target.value})} placeholder="Enter new password" />
-      </div>
-      <div className="form-group">
-        <label>Confirm New Password</label>
-        <input type="password" className="form-control" value={passwordData.confirm} onChange={e => setPasswordData({...passwordData, confirm: e.target.value})} placeholder="Confirm new password" />
-      </div>
-      {passwordMsg && (
-        <p style={{ fontSize: '0.85rem', color: passwordMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>
-          {passwordMsg}
-        </p>
-      )}
-      <button className="btn" onClick={async () => {
-        if (passwordData.newPass !== passwordData.confirm) {
-          setPasswordMsg('Passwords do not match.');
-          return;
-        }
-        if (passwordData.newPass.length < 6) {
-          setPasswordMsg('Password must be at least 6 characters.');
-          return;
-        }
-        try {
-          await api.post('/auth/change-password', { new_password: passwordData.newPass });
-          setPasswordMsg('Password changed successfully!');
-          setPasswordData({ newPass: '', confirm: '' });
-          setTimeout(() => setShowChangePassword(false), 1500);
-        } catch (err) {
-          setPasswordMsg(err.response?.data?.detail || 'Failed to change password.');
-        }
-      }}>
-        Change Password
-      </button>
-    </div>
-  </div>
-)}
+  
 </div>
                 <div className="form-group">
                   <label>Personal Email</label>
@@ -178,6 +136,67 @@ const [passwordMsg, setPasswordMsg] = useState('');
                 <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-main)' }} onClick={() => setShowAddModal(false)}>Cancel</button>
                 <button type="submit" className="btn">Add Employee</button>
               </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Change Password Modal ── */}
+      {showChangePassword && (
+        <div className="modal-overlay">
+          <div className="auth-card" style={{ maxWidth: '400px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>Change Password</h2>
+              <button onClick={() => { setShowChangePassword(false); setPasswordMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              if (passwordData.newPass !== passwordData.confirm) {
+                setPasswordMsg('Passwords do not match.');
+                return;
+              }
+              if (passwordData.newPass.length < 6) {
+                setPasswordMsg('Password must be at least 6 characters.');
+                return;
+              }
+              try {
+                await api.post('/auth/change-password', { new_password: passwordData.newPass });
+                setPasswordMsg('Password changed successfully!');
+                setPasswordData({ newPass: '', confirm: '' });
+                setTimeout(() => { setShowChangePassword(false); setPasswordMsg(''); }, 1500);
+              } catch (err) {
+                setPasswordMsg(err.response?.data?.detail || 'Failed to change password.');
+              }
+            }}>
+              <div className="form-group">
+                <label>New Password</label>
+                <input
+  id="hr-new-pass"
+  type="password"
+  className="form-control"
+  value={passwordData.newPass}
+  onChange={e => setPasswordData({...passwordData, newPass: e.target.value})}
+  placeholder="Enter new password"
+  onKeyDown={e => { if (e.key === 'Enter') { e.preventDefault(); document.getElementById('hr-confirm-pass').focus(); }}}
+/>
+              </div>
+              <div className="form-group">
+                <label>Confirm New Password</label>
+                <input
+  id="hr-confirm-pass"
+  type="password"
+  className="form-control"
+  value={passwordData.confirm}
+  onChange={e => setPasswordData({...passwordData, confirm: e.target.value})}
+  placeholder="Confirm new password"
+/>
+              </div>
+              {passwordMsg && (
+                <p style={{ fontSize: '0.85rem', color: passwordMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>
+                  {passwordMsg}
+                </p>
+              )}
+              <button type="submit" className="btn">Change Password</button>
             </form>
           </div>
         </div>
