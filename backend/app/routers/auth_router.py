@@ -54,10 +54,18 @@ def reset_password(
     current_user: models.User = Depends(auth.get_current_user),
     db: Session = Depends(database.get_db)
 ):
-    """First-login password reset (requires authentication)."""
     if not current_user.is_first_login:
         raise HTTPException(status_code=400, detail="Password already reset")
-        
+
+    if auth.verify_password(data.new_password, current_user.hashed_password):
+        raise HTTPException(
+            status_code=400,
+            detail="New password cannot be the same as your temporary password."
+        )
+
+    if len(data.new_password) < 6:
+        raise HTTPException(status_code=400, detail="Password must be at least 6 characters.")
+
     current_user.hashed_password = auth.get_password_hash(data.new_password)
     current_user.is_first_login = False
     db.commit()
