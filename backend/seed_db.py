@@ -72,9 +72,9 @@ def seed():
             "is_first_login": False
         },
         {
-            "name": "Niddhi Thapa",
-            "email": "hr.niddhi@accops.com",
-            "personal_email": "niddhi.thapa@gmail.com",
+            "name": "Nidhi Thapa",
+            "email": "hr.nidhi@accops.com",
+            "personal_email": "nidhi.thapa@gmail.com",
             "password": "Accops@2026",
             "role": RoleEnum.hr,
             "department": "HR",
