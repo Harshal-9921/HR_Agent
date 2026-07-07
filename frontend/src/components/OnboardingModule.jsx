@@ -200,7 +200,7 @@ const YouTubeEnforcedPlayer = ({ url, onComplete }) => {
 };
 
 const DocumentViewer = ({ url, onComplete }) => {
-  const fullUrl = isUploadedFile(url) ? `http://localhost:8001${url}` : url;
+  const fullUrl = isUploadedFile(url) ? url : url;
   const ext = getFileExtension(url);
 
   if (ext === 'pdf') {
@@ -242,7 +242,7 @@ const DocumentViewer = ({ url, onComplete }) => {
 
 // ─── Generic Video (non-YouTube, local upload) ──────────────────────────────
 const LocalVideoPlayer = ({ url, onComplete }) => {
-  const fullUrl = isUploadedFile(url) ? `http://localhost:8001${url}` : url;
+  const fullUrl = isUploadedFile(url) ? url : url;
   const [completed, setCompleted] = useState(false);
   const maxTimeRef = useRef(0);
 
