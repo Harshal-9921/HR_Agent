@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://localhost:8001/api',
+  baseURL: 'https://hragent-production-868b.up.railway.app/docs',
   headers: {
     'Content-Type': 'application/json',
   },
