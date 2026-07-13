@@ -72,8 +72,7 @@ def create_employee(
         raise HTTPException(status_code=400, detail="User with this email already exists")
 
     # Generate a temporary password
-    temp_password = "Password@123" # In a real app, generate a random one and send via email
-
+    temp_password = generate_random_password() 
     new_user = models.User(
         name=data.name,
         email=data.email or data.personal_email,  # Use personal_email if company email not provided
