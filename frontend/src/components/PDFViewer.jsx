@@ -11,7 +11,7 @@ const PDFViewer = ({ url, onReadComplete }) => {
   const [acknowledged, setAcknowledged] = useState(false);
   const containerRef = useRef(null);
 
-  const fullUrl = url?.startsWith('/static/') ? `http://localhost:8001${url}` : url;
+  const fullUrl = url?.startsWith('/static/') ? `http://10.130.37.2:8001${url}` : url;
 
   const onDocumentLoadSuccess = ({ numPages }) => {
     setNumPages(numPages);
