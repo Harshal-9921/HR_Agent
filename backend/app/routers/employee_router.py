@@ -29,7 +29,10 @@ def get_employees_with_progress(
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.admin, models.RoleEnum.hr]))
 ):
     """Returns employees with their live module completion stats."""
-    employees = db.query(models.User).filter(models.User.role != models.RoleEnum.admin).all()
+    employees = db.query(models.User).filter(
+    models.User.role != models.RoleEnum.admin,
+    models.User.is_archived == False
+).all()
     result = []
     for emp in employees:
         applicable_contents = db.query(models.Content).filter(
@@ -396,3 +399,27 @@ def download_all_reports_csv(
         media_type="text/csv",
         headers={"Content-Disposition": "attachment; filename=all_employee_reports.csv"}
     )
+
+@router.put("/{user_id}/archive")
+def toggle_archive(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    user.is_archived = not user.is_archived
+    db.commit()
+    return {"message": f"User {'archived' if user.is_archived else 'unarchived'} successfully.", "is_archived": user.is_archived}
+
+@router.get("/with-progress")
+def get_employees_with_progress(
+    include_archived: bool = False,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.admin, models.RoleEnum.hr]))
+):
+    query = db.query(models.User).filter(models.User.role != models.RoleEnum.admin)
+    if not include_archived:
+        query = query.filter(models.User.is_archived == False)
+    employees = query.all()

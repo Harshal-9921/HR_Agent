@@ -23,6 +23,7 @@ class User(Base):
     doj = Column(String, nullable=True) # Date of Joining (simplifying as String for now)
     is_first_login = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
+    is_archived = Column(Boolean, default=False)
 
 class EmailStatus(str, enum.Enum):
     sent = "sent"

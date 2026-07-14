@@ -14,6 +14,7 @@ const HRDashboard = () => {
   const [newEmployee, setNewEmployee] = useState({
     name: '', personal_email: '', role: 'full_time', department: '', doj: ''
   });
+  const [showArchived, setShowArchived] = useState(false);
   const [showChangePassword, setShowChangePassword] = useState(false);
 const [passwordData, setPasswordData] = useState({ current: '', newPass: '', confirm: '' });
 const [passwordMsg, setPasswordMsg] = useState('');
@@ -37,6 +38,7 @@ const [passwordMsg, setPasswordMsg] = useState('');
       setLoading(false);
     }
   };
+  const res = await api.get(`/employees/with-progress${showArchived ? '?include_archived=true' : ''}`);
 
   const handleAddEmployee = async (e) => {
     e.preventDefault();
@@ -278,6 +280,13 @@ const [passwordMsg, setPasswordMsg] = useState('');
             <button className="btn" style={{ width: 'auto', padding: '0.5rem 1rem', fontSize: '0.85rem' }} onClick={() => setShowAddModal(true)}>
               <UserPlus size={18} style={{ marginRight: '0.5rem' }} /> Add Employee
             </button>
+            <button
+              className="btn"
+              style={{ width: 'auto', fontSize: '0.8rem', background: 'transparent', border: '1px solid var(--border)' }}
+              onClick={() => setShowArchived(!showArchived)}
+              >
+              {showArchived ? 'Hide Archived' : 'Show Archived'}
+            </button>
           </div>
 
           <div style={{ overflowX: 'auto' }}>
@@ -366,6 +375,21 @@ const [passwordMsg, setPasswordMsg] = useState('');
                             style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '0.4rem', cursor: 'pointer' }}
                           >
                             Reset All
+                          </button>
+                          <button
+                            onClick={async (e) => {
+                            e.stopPropagation();
+                            if (!window.confirm(`Archive ${emp.name}? They won't appear in active employee list.`)) return;
+                            try {
+                            await api.put(`/employees/${emp.id}/archive`);
+                            fetchData();
+                            } catch (err) {
+                            alert('Failed: ' + (err.response?.data?.detail || err.message));
+                            }
+                            }}
+                            style={{ padding: '0.3rem 0.6rem', fontSize: '0.75rem', background: 'rgba(107,114,128,0.1)', color: '#6b7280', border: '1px solid #6b7280', borderRadius: '0.4rem', cursor: 'pointer' }}
+                            >
+                            Archive
                           </button>
                         </div>
                       </td>
