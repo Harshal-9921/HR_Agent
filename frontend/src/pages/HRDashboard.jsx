@@ -191,7 +191,7 @@ const HRDashboard = () => {
         </nav>
         <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', marginTop: 'auto' }}>
           <button className="nav-item" onClick={() => setShowChangePassword(true)} style={{ color: 'var(--text-muted)' }}>
-            🔑 Change Password
+            Change Password
           </button>
           <button className="nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
             <LogOut size={20} /> Sign Out
