@@ -22,9 +22,13 @@ const HRDashboard = () => {
     fetchData();
   }, [showArchived]);
 
-  const fetchData = async () => {
-    try {
-      const res = await api.get(`/employees/with-progress${showArchived ? '?include_archived=true' : ''}`);
+  useEffect(() => {
+  fetchData(showArchived);
+}, [showArchived]);
+
+const fetchData = async (includeArchived = false) => {
+  try {
+    const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
       const data = res.data;
       setEmployees(data);
       const total = data.length;
