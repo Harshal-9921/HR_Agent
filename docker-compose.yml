@@ -48,6 +48,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     command: celery -A app.worker worker --loglevel=info
+    env_file:
+      - ./backend/.env
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://postgres:harshal123@db:5432/employee_portal
