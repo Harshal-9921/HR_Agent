@@ -1,10 +1,11 @@
 # Build Stage
+ARG CACHEBUST=1
 FROM node:20-alpine AS build
 
 WORKDIR /app
 
 COPY package.json package-lock.json* ./
-RUN npm install
+RUN npm ci --no-cache
 
 COPY . .
 RUN npm run build
