@@ -19,10 +19,7 @@ const HRDashboard = () => {
   const navigate = useNavigate();
 
   useEffect(() => {
-    fetchData();
-  }, [showArchived]);
-
-  useEffect(() => {
+    console.log('showArchived changes:', showArchived);
   fetchData(showArchived);
 }, [showArchived]);
 
