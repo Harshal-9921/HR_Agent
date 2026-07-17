@@ -21,9 +21,6 @@ const navigate = useNavigate();
 const fetchData = async (includeArchived = false) => {
   try {
     const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
-    useEffect(() => {
-  fetchData(showArchived);
-}, [showArchived]);
       const data = res.data;
       setEmployees(data);
       const total = data.length;
@@ -32,10 +29,15 @@ const fetchData = async (includeArchived = false) => {
       const notStarted = data.filter(e => e.completion_pct === 0).length;
       const avgPct = total > 0 ? Math.round(data.reduce((sum, e) => sum + e.completion_pct, 0) / total) : 0;
       setStats({ total, completed, inProgress, notStarted, avgPct });
-    } catch (err) {
+  } catch (err){
       console.error('Failed to fetch employees:', err);
     }
-  };
+};
+
+  useEffect(() => {
+    fetchData(showArchived);
+  }, [showArchived]);
+
 
   const handleLogout = () => {
     localStorage.removeItem('token');

@@ -25,14 +25,16 @@ def get_employees(
 
 @router.get("/with-progress")
 def get_employees_with_progress(
+    include_archived: bool = False,
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.admin, models.RoleEnum.hr]))
 ):
     """Returns employees with their live module completion stats."""
-    employees = db.query(models.User).filter(
-    models.User.role != models.RoleEnum.admin,
-    models.User.is_archived == False
-).all()
+    query = db.query(models.User).filter(models.User.role != models.RoleEnum.admin)
+    if not include_archived:
+        query = query.filter(models.User.is_archived == False)
+    employees = query.all()
+
     result = []
     for emp in employees:
         applicable_contents = db.query(models.Content).filter(
@@ -40,7 +42,6 @@ def get_employees_with_progress(
         ).all()
         total_content = len(applicable_contents)
         applicable_ids = {c.id for c in applicable_contents}
-
         completed = db.query(models.ModuleProgress).filter(
             models.ModuleProgress.user_id == emp.id,
             models.ModuleProgress.completed == True,
@@ -58,7 +59,7 @@ def get_employees_with_progress(
             "modules_completed": completed,
             "total_modules": total_content,
             "completion_pct": pct,
-            "is_archived": emp.is_archived
+            "is_archived": emp.is_archived,
         })
     return result
 
