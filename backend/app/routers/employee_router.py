@@ -58,6 +58,7 @@ def get_employees_with_progress(
             "modules_completed": completed,
             "total_modules": total_content,
             "completion_pct": pct,
+            "is_archived": emp.is_archived
         })
     return result
 

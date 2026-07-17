@@ -16,16 +16,14 @@ const HRDashboard = () => {
   const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
-  const navigate = useNavigate();
-
-  useEffect(() => {
-    console.log('showArchived changes:', showArchived);
-  fetchData(showArchived);
-}, [showArchived]);
+const navigate = useNavigate();
 
 const fetchData = async (includeArchived = false) => {
   try {
     const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
+    useEffect(() => {
+  fetchData(showArchived);
+}, [showArchived]);
       const data = res.data;
       setEmployees(data);
       const total = data.length;
@@ -291,8 +289,16 @@ const fetchData = async (includeArchived = false) => {
                             style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(245,158,11,0.1)', color: '#f59e0b', border: '1px solid #f59e0b', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>← Prev</button>
                           <button onClick={async () => { if (!window.confirm(`Reset ALL onboarding for ${emp.name}?`)) return; try { await api.post(`/employees/${emp.id}/control?action=reset_all`); fetchData(); } catch (err) { alert('Failed: ' + (err.response?.data?.detail || err.message)); } }}
                             style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(239,68,68,0.1)', color: '#ef4444', border: '1px solid #ef4444', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Reset All</button>
-                          <button onClick={async () => { if (!window.confirm(`${emp.is_archived ? 'Unarchive' : 'Archive'} ${emp.name}?`)) return; try { await api.put(`/employees/${emp.id}/archive`); fetchData(); } catch (err) { alert('Failed: ' + (err.response?.data?.detail || err.message)); } }}
-                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: emp.is_archived ? 'rgba(34,197,94,0.1)' : 'rgba(107,114,128,0.1)', color: emp.is_archived ? '#22c55e' : '#6b7280', border: `1px solid ${emp.is_archived ? '#22c55e' : '#6b7280'}`, borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                          <button onClick={async () => {
+                            if (!window.confirm(`${emp.is_archived ? 'Unarchive' : 'Archive'} ${emp.name}?`)) return;
+                            try {
+                              await api.put(`/employees/${emp.id}/archive`);
+                              await fetchData(showArchived);
+                            } catch (err) {
+                              alert('Failed: ' + (err.response?.data?.detail || err.message));
+                            }
+                          }}
+                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(168,85,247,0.1)', color: '#a855f7', border: '1px solid #a855f7', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                             {emp.is_archived ? 'Unarchive' : 'Archive'}
                           </button>
                         </div>
