@@ -47,95 +47,262 @@ def _get_module_info(db, user_id):
     return completed_titles, remaining_titles, len(all_content), len(completed_ids)
 
 
-# ─── Task: send a single email ────────────────────────────────────────────────
-@celery_app.task(bind=True, max_retries=3, default_retry_delay=60)
+# ─── Task: send 2 emails ────────────────────────────────────────────────
+@celery_app.task(bind=True, max_retries=3)
 def send_onboarding_email(self, user_id: int, email_type: str, context: dict = None):
     db = SessionLocal()
     try:
         user = db.query(User).filter(User.id == user_id).first()
         if not user:
-            return f"User {user_id} not found"
+            return
 
-        log = EmailLog(user_id=user_id, email_type=email_type, status=EmailStatus.pending)
+        email_service = EmailService()
+        first_name = user.name.split()[0] if user.name else "New Joiner"
+        personal_email = user.personal_email or user.email
+        company_email = user.email
+        password = context.get("password", "") if context else ""
+        portal_url = "http://10.130.37.2"
+
+        if email_type == "Day 0":
+            # EMAIL 1 — Welcome Email 
+            subject = "Welcome to Accops Systems! 🎉"
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px;">
+    <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Accops! 🚀</h1>
+  </div>
+
+  <p style="font-size: 16px;">Dear <strong>{first_name}</strong>,</p>
+
+  <p style="font-size: 15px; line-height: 1.6;">
+    Welcome to Accops! We're excited to have you onboard as an <strong>Accopsian</strong>.
+  </p>
+
+  <p style="font-size: 15px; line-height: 1.6;">
+    To begin your onboarding journey, you will shortly receive a separate email with your 
+    <strong>login credentials</strong> for the HR Onboarding Portal. Once you receive them, 
+    you can log in and get started at:
+  </p>
+
+  <div style="text-align: center; margin: 25px 0;">
+    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
+      Access Onboarding Portal
+    </a>
+  </div>
+
+  <p style="font-size: 15px; line-height: 1.6;">Below is the onboarding flow you will go through:</p>
+
+  <ul style="font-size: 15px; line-height: 2;">
+    <li>🏢 <strong>Company Introduction</strong></li>
+    <li>📋 <strong>Policy Introduction</strong></li>
+    <li>💡 <strong>Product Trainings</strong></li>
+    <li>📚 <strong>Keep Learning</strong></li>
+  </ul>
+
+  <p style="font-size: 15px; line-height: 1.6;">
+    Once you complete the above modules, the next set of trainings will be automatically 
+    available on the portal based on your department.
+  </p>
+
+  <p style="font-size: 15px; line-height: 1.6;">
+    Wishing you a great start and a successful journey with us. 
+    <strong>Congratulations once again on being a part of Accops!</strong>
+  </p>
+
+  <p style="font-size: 15px;">Warm regards,<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
+
+  <div style="border-top: 1px solid #eee; margin-top: 25px; padding-top: 15px; font-size: 12px; color: #999; text-align: center;">
+    This is an automated email from the Accops HR Onboarding System.
+  </div>
+</body>
+</html>
+"""
+            # Send welcome email
+            email_service.send_email(
+                to_email=personal_email,
+                subject=subject,
+                html_content=html_content
+            )
+
+            # Log welcome email
+            log = EmailLog(
+                user_id=user_id,
+                email_type="Welcome",
+                status=EmailStatus.sent,
+                sent_at=datetime.now().isoformat()
+            )
+            db.add(log)
+            db.commit()
+
+            # Queue credentials email after 30 minutes
+            send_credentials_email.apply_async(
+                args=[user_id, password],
+                countdown=900  # 15 minutes
+            )
+
+        elif email_type == "T-2":
+            subject = "You're joining Accops in 2 days! 🎉"
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px;">
+    <h1 style="color: white; margin: 0;">See You Soon, {first_name}! 👋</h1>
+  </div>
+  <p>Dear <strong>{first_name}</strong>,</p>
+  <p style="line-height: 1.6;">We're looking forward to welcoming you to Accops in <strong>2 days</strong>! 
+  Get ready for an exciting journey ahead.</p>
+  <p style="line-height: 1.6;">On your joining day, you will receive your login credentials for the 
+  HR Onboarding Portal via email. Please keep an eye on your inbox.</p>
+  <p>See you soon!<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
+</body>
+</html>
+"""
+            email_service.send_email(
+                to_email=personal_email,
+                subject=subject,
+                html_content=html_content
+            )
+            log = EmailLog(
+                user_id=user_id,
+                email_type="T-2",
+                status=EmailStatus.sent,
+                sent_at=datetime.now().isoformat()
+            )
+            db.add(log)
+            db.commit()
+
+        elif email_type == "Reminder":
+            subject = "Reminder: Complete Your Onboarding"
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px;">
+  <p>Dear <strong>{first_name}</strong>,</p>
+  <p>This is a friendly reminder to complete your onboarding on the Accops HR Portal.</p>
+  <div style="text-align: center; margin: 20px 0;">
+    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">
+      Continue Onboarding
+    </a>
+  </div>
+  <p>Regards,<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
+</body>
+</html>
+"""
+            email_service.send_email(
+                to_email=company_email,
+                subject=subject,
+                html_content=html_content
+            )
+            log = EmailLog(
+                user_id=user_id,
+                email_type="Reminder",
+                status=EmailStatus.sent,
+                sent_at=datetime.now().isoformat()
+            )
+            db.add(log)
+            db.commit()
+
+    except Exception as e:
+        db.rollback()
+        countdown = 2 ** self.request.retries * 60
+        raise self.retry(exc=Exception("Email send failed, retrying..."), countdown=countdown)
+    finally:
+        db.close()
+
+
+@celery_app.task(bind=True, max_retries=3)
+def send_credentials_email(self, user_id: int, password: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return
+
+        email_service = EmailService()
+        first_name = user.name.split()[0] if user.name else "New Joiner"
+        personal_email = user.personal_email or user.email
+        portal_url = "http://10.130.37.2"
+
+        subject = "Your Accops Onboarding Portal Credentials"
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px;">
+    <h1 style="color: white; margin: 0;">Your Login Credentials 🔐</h1>
+  </div>
+
+  <p>Dear <strong>{first_name}</strong>,</p>
+
+  <p style="line-height: 1.6;">
+    As mentioned in our earlier email, here are your login credentials for the 
+    <strong>Accops HR Onboarding Portal</strong>:
+  </p>
+
+  <div style="background: #f8f9fa; border: 1px solid #e9ecef; border-radius: 8px; padding: 20px; margin: 20px 0;">
+    <table style="width: 100%; font-size: 15px;">
+      <tr>
+        <td style="padding: 8px 0; color: #666; width: 40%;">🌐 Portal URL:</td>
+        <td style="padding: 8px 0;"><a href="{portal_url}" style="color: #6366f1;">{portal_url}</a></td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">📧 Email:</td>
+        <td style="padding: 8px 0;"><strong>{user.email}</strong></td>
+      </tr>
+      <tr>
+        <td style="padding: 8px 0; color: #666;">🔑 Password:</td>
+        <td style="padding: 8px 0;"><strong>{password}</strong></td>
+      </tr>
+    </table>
+  </div>
+
+  <div style="background: #fff3cd; border: 1px solid #ffc107; border-radius: 6px; padding: 15px; margin: 15px 0;">
+    <p style="margin: 0; font-size: 14px;">
+      ⚠️ <strong>Important:</strong> You will be asked to reset your password on first login. 
+      Please choose a strong password and keep it secure.
+    </p>
+  </div>
+
+  <div style="text-align: center; margin: 25px 0;">
+    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
+      Login to Portal
+    </a>
+  </div>
+
+  <p style="line-height: 1.6;">
+    If you face any issues logging in, please reach out to hr@accops.com.
+  </p>
+
+  <p>Warm regards,<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
+
+  <div style="border-top: 1px solid #eee; margin-top: 25px; padding-top: 15px; font-size: 12px; color: #999; text-align: center;">
+    This is an automated email from the Accops HR Onboarding System.
+  </div>
+</body>
+</html>
+"""
+        email_service.send_email(
+            to_email=personal_email,
+            subject=subject,
+            html_content=html_content
+        )
+
+        log = EmailLog(
+            user_id=user_id,
+            email_type="Credentials",
+            status=EmailStatus.sent,
+            sent_at=datetime.now().isoformat()
+        )
         db.add(log)
         db.commit()
 
-        subject = ""
-        html = ""
-
-        if email_type == "T-2":
-            subject = "Welcome Aboard! 2 Days to Go 🎉"
-            html = EmailService.get_t_minus_2_template(user.name, user.doj)
-
-        elif email_type == "Day 0":
-            subject = "Welcome to Accops! Your Login Details 🔑"
-            password = (context or {}).get("password", "Password@123")
-            html = EmailService.get_day_0_template(user.name, user.email, password)
-
-        elif email_type == "Reminder":
-            _, remaining, total, completed_count = _get_module_info(db, user_id)
-            if not remaining:
-                return "No pending modules – skipping reminder"
-            subject = f"⏰ Reminder: You have {len(remaining)} onboarding module(s) to complete"
-            html = EmailService.get_reminder_template(
-                user.name, completed_count, total, remaining
-            )
-
-        elif email_type == "Escalation":
-            # context should contain: hr_name, hr_email, days_inactive
-            hr_name = (context or {}).get("hr_name", "HR Team")
-            hr_email = (context or {}).get("hr_email")
-            days_inactive = (context or {}).get("days_inactive", 3)
-            _, remaining, total, completed_count = _get_module_info(db, user_id)
-            subject = f"🚨 Escalation: {user.name} inactive for {days_inactive} days"
-            html = EmailService.get_escalation_template(
-                hr_name, user.name, user.email,
-                days_inactive, completed_count, total, remaining
-            )
-            if hr_email:
-                print(f"Sending escalation to HR: {hr_email}")
-                EmailService.send_email(hr_email, subject, html)
-                log.status = EmailStatus.sent
-                log.sent_at = datetime.now().isoformat()
-                db.commit()
-                return f"Escalation sent to HR {hr_email} about {user.email}"
-
-        if not html:
-            return "Unknown email type"
-
-        # Send to both company and personal email
-        recipients = list(set(filter(None, [user.email, user.personal_email])))
-        success = True
-        for recipient in recipients:
-            print(f"Sending [{email_type}] to {recipient}")
-            if not EmailService.send_email(recipient, subject, html):
-                success = False
-
-        log.status = EmailStatus.sent if success else EmailStatus.failed
-        log.sent_at = datetime.now().isoformat()
-        if not success:
-            log.error_message = "Failed to send to one or more recipients"
-            log.retry_count = (log.retry_count or 0) + 1
-            db.commit()
-            if log.retry_count < 3:
-                countdown = 60 * (2 ** (log.retry_count - 1))
-                raise self.retry(exc=Exception("Email send failed, retrying..."), countdown=countdown)
-        db.commit()
-        return f"{'Sent' if success else 'Failed'} [{email_type}] to {user.email}"
-
     except Exception as e:
-        if 'log' in locals():
-            log.status = EmailStatus.failed
-            log.error_message = str(e)
-            log.retry_count = (log.retry_count or 0) + 1
-            db.commit()
-            countdown = 60 * (2 ** (log.retry_count - 1))
-        else:
-            countdown = 60
-        try:
-            raise self.retry(exc=e, countdown=countdown)
-        except self.MaxRetriesExceededError:
-            return f"Max retries exceeded for [{email_type}] to {user_id}"
+        db.rollback()
+        countdown = 2 ** self.request.retries * 60
+        raise self.retry(exc=Exception("Credentials email failed, retrying..."), countdown=countdown)
     finally:
         db.close()
 
