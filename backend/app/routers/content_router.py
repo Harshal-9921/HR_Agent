@@ -260,9 +260,8 @@ def update_content(
         raise HTTPException(status_code=404, detail="Content not found")
     for key, value in data.dict().items():
         if key == 'is_intro':
-            continue  # Never allow is_intro to be changed via edit
+            continue  
         setattr(content, key, value)
-    # Always preserve is_intro flag
     if content.is_intro:
         content.order = 0
     db.commit()

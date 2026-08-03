@@ -3,6 +3,7 @@ from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
 from fastapi.responses import StreamingResponse
+from pydantic import BaseModel
 import csv
 import io
 import string
@@ -425,3 +426,29 @@ def get_employees_with_progress(
     if not include_archived:
         query = query.filter(models.User.is_archived == False)
     employees = query.all()
+
+class UpdateEmployeeRequest(BaseModel):
+    name: Optional[str] = None
+    personal_email: Optional[str] = None
+    department: Optional[str] = None
+    doj: Optional[str] = None
+    role: Optional[str] = None
+
+@router.put("/{user_id}")
+def update_employee(
+    user_id: int,
+    data: UpdateEmployeeRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    user = db.query(models.User).filter(models.User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if data.name: user.name = data.name
+    if data.personal_email: user.personal_email = data.personal_email
+    if data.department: user.department = data.department
+    if data.doj: user.doj = data.doj
+    if data.role: user.role = data.role
+    db.commit()
+    db.refresh(user)
+    return {"message": "Employee updated successfully"}

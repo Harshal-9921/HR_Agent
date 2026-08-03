@@ -16,6 +16,8 @@ const HRDashboard = () => {
   const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
   const [passwordMsg, setPasswordMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
+  const [editingEmployee, setEditingEmployee] = useState(null);
+const [editMsg, setEditMsg] = useState('');
 const navigate = useNavigate();
 
 const fetchData = async (includeArchived = false) => {
@@ -170,6 +172,74 @@ const fetchData = async (includeArchived = false) => {
               </div>
             </form>
           </div>
+          {editingEmployee && (
+  <div className="modal-overlay">
+    <div className="auth-card" style={{ maxWidth: '480px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2>Edit Employee</h2>
+        <button onClick={() => { setEditingEmployee(null); setEditMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+      </div>
+      <form onSubmit={async (e) => {
+        e.preventDefault();
+        try {
+          await api.put(`/employees/${editingEmployee.id}`, {
+            name: editingEmployee.name,
+            personal_email: editingEmployee.personal_email,
+            department: editingEmployee.department,
+            doj: editingEmployee.doj,
+            role: editingEmployee.role,
+          });
+          setEditMsg('Employee updated successfully!');
+          setTimeout(() => { setEditingEmployee(null); setEditMsg(''); fetchData(showArchived); }, 1500);
+        } catch (err) {
+          setEditMsg(err.response?.data?.detail || 'Failed to update employee.');
+        }
+      }}>
+        <div className="form-group">
+          <label>Full Name</label>
+          <input type="text" className="form-control" value={editingEmployee.name} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} />
+        </div>
+        <div className="form-group">
+          <label>Personal Email</label>
+          <input type="email" className="form-control" value={editingEmployee.personal_email || ''} onChange={e => setEditingEmployee({...editingEmployee, personal_email: e.target.value})} placeholder="personal@gmail.com" />
+        </div>
+        <div className="form-group">
+          <label>Department</label>
+          <select className="form-control" value={editingEmployee.department || ''} onChange={e => setEditingEmployee({...editingEmployee, department: e.target.value})}>
+            <option value="">Select Department</option>
+            <option value="Engineering">Engineering</option>
+            <option value="Sales">Sales</option>
+            <option value="Pre-sales">Pre-sales</option>
+            <option value="Marketing">Marketing</option>
+            <option value="Product Management">Product Management</option>
+            <option value="HR">HR</option>
+            <option value="IT">IT</option>
+            <option value="Administration">Administration</option>
+            <option value="Finance and Accounts">Finance and Accounts</option>
+            <option value="Customer Success">Customer Success</option>
+          </select>
+        </div>
+        <div className="form-group">
+          <label>Date of Joining</label>
+          <input type="date" className="form-control" value={editingEmployee.doj || ''} onChange={e => setEditingEmployee({...editingEmployee, doj: e.target.value})} />
+        </div>
+        <div className="form-group">
+          <label>Role</label>
+          <select className="form-control" value={editingEmployee.role || 'full_time'} onChange={e => setEditingEmployee({...editingEmployee, role: e.target.value})}>
+            <option value="full_time">Full Time</option>
+            <option value="intern">Intern</option>
+            <option value="consultant">Consultant</option>
+          </select>
+        </div>
+        {editMsg && <p style={{ fontSize: '0.85rem', color: editMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{editMsg}</p>}
+        <div style={{ display: 'flex', gap: '1rem' }}>
+          <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setEditingEmployee(null); setEditMsg(''); }}>Cancel</button>
+          <button type="submit" className="btn">Save Changes</button>
+        </div>
+      </form>
+    </div>
+  </div>
+)}
         </div>
       )}
 
@@ -284,6 +354,10 @@ const fetchData = async (includeArchived = false) => {
                         </span>
                       </td>
                       <td style={{ padding: '1rem' }}>
+                        <button onClick={() => setEditingEmployee(emp)}
+  style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+  Edit
+</button>
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                           <button onClick={async () => { if (!window.confirm(`Move ${emp.name} to next module?`)) return; try { await api.post(`/employees/${emp.id}/control?action=next`); fetchData(); } catch (err) { alert('Failed: ' + (err.response?.data?.detail || err.message)); } }}
                             style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Next →</button>
