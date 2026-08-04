@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
   LayoutDashboard, Users, Settings, LogOut,
-  BarChart3, UserPlus, Clock, AlertCircle, Eye, Activity
+  BarChart3, UserPlus, Clock, AlertCircle, Eye, Activity, Edit2
 } from 'lucide-react';
 import api from '../api';
 
@@ -172,7 +172,10 @@ const fetchData = async (includeArchived = false) => {
               </div>
             </form>
           </div>
-          {editingEmployee && (
+        </div>
+      )}
+
+      {editingEmployee && (
   <div className="modal-overlay">
     <div className="auth-card" style={{ maxWidth: '480px' }}>
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
@@ -240,8 +243,6 @@ const fetchData = async (includeArchived = false) => {
     </div>
   </div>
 )}
-        </div>
-      )}
 
       {/* ── Sidebar ── */}
       <div className="sidebar">
@@ -354,9 +355,11 @@ const fetchData = async (includeArchived = false) => {
                         </span>
                       </td>
                       <td style={{ padding: '1rem' }}>
-                        <button onClick={() => setEditingEmployee(emp)}
-  style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-  Edit
+                        <button
+  onClick={() => setEditingEmployee(emp)}
+  title="Edit Employee"
+  style={{ padding: '0.3rem 0.5rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '0.4rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px' }}>
+  <Edit2 size={14} />
 </button>
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                           <button onClick={async () => { if (!window.confirm(`Move ${emp.name} to next module?`)) return; try { await api.post(`/employees/${emp.id}/control?action=next`); fetchData(); } catch (err) { alert('Failed: ' + (err.response?.data?.detail || err.message)); } }}
