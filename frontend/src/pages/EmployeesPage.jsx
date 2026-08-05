@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
-  LayoutDashboard, Users, Settings, LogOut,
+  LayoutDashboard, Users, Settings, LogOut, Mail,
   ChevronDown, ChevronUp, CheckCircle, XCircle, Clock, Activity
 } from 'lucide-react';
 import api from '../api';
@@ -11,6 +11,8 @@ const EmployeesPage = () => {
   const [selectedReport, setSelectedReport] = useState(null);
   const [reportData, setReportData] = useState(null);
   const [loadingReport, setLoadingReport] = useState(false);
+  const [emailLogs, setEmailLogs] = useState({});
+const [loadingEmail, setLoadingEmail] = useState({});
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -34,6 +36,7 @@ const EmployeesPage = () => {
     }
     setSelectedReport(empId);
     setLoadingReport(true);
+    fetchEmailLogs(empId); 
     try {
       const res = await api.get(`/employees/${empId}/report`);
       setReportData(res.data);
@@ -41,6 +44,17 @@ const EmployeesPage = () => {
       console.error(err);
     } finally {
       setLoadingReport(false);
+    }
+  };
+  const fetchEmailLogs = async (empId) => {
+    setLoadingEmail(prev => ({ ...prev, [empId]: true }));
+    try {
+      const res = await api.get(`/employees/${empId}/email-logs`);
+      setEmailLogs(prev => ({ ...prev, [empId]: res.data }));
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoadingEmail(prev => ({ ...prev, [empId]: false }));
     }
   };
 
@@ -269,6 +283,58 @@ return (
                             ))}
                           </tbody>
                         </table>
+                        {/* Email Delivery Status */}
+<div style={{ marginTop: '1.5rem' }}>
+  <h4 style={{ fontSize: '0.9rem', fontWeight: '600', marginBottom: '1rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+    <Mail size={16} color="var(--primary-color)" /> Email Delivery Status
+  </h4>
+  {loadingEmail[emp.id] ? (
+    <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Loading email logs...</p>
+  ) : emailLogs[emp.id] && emailLogs[emp.id].length > 0 ? (
+    <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.82rem' }}>
+      <thead>
+        <tr style={{ borderBottom: '1px solid var(--border)' }}>
+          {['Email Type', 'Status', 'Sent At', 'Retries'].map(h => (
+            <th key={h} style={{ padding: '0.6rem 0.75rem', textAlign: 'left', color: 'var(--text-muted)', fontWeight: '600', fontSize: '0.7rem', textTransform: 'uppercase' }}>{h}</th>
+          ))}
+        </tr>
+      </thead>
+      <tbody>
+        {emailLogs[emp.id].map((log) => (
+          <tr key={log.id} style={{ borderBottom: '1px solid var(--border)' }}>
+            <td style={{ padding: '0.6rem 0.75rem' }}>
+              <span style={{ display: 'flex', alignItems: 'center', gap: '0.4rem' }}>
+                <Mail size={13} color="var(--primary-color)" />
+                {log.email_type}
+              </span>
+            </td>
+            <td style={{ padding: '0.6rem 0.75rem' }}>
+              <span style={{
+                display: 'inline-flex', alignItems: 'center', gap: '0.3rem',
+                padding: '0.2rem 0.6rem', borderRadius: '1rem', fontSize: '0.72rem', fontWeight: '600',
+                background: log.status === 'sent' ? 'rgba(34,197,94,0.1)' : log.status === 'failed' ? 'rgba(239,68,68,0.1)' : 'rgba(245,158,11,0.1)',
+                color: log.status === 'sent' ? '#22c55e' : log.status === 'failed' ? '#ef4444' : '#f59e0b',
+              }}>
+                {log.status === 'sent' ? <CheckCircle size={11} /> : log.status === 'failed' ? <XCircle size={11} /> : <Clock size={11} />}
+                {log.status?.toUpperCase()}
+              </span>
+            </td>
+            <td style={{ padding: '0.6rem 0.75rem', color: 'var(--text-muted)', fontSize: '0.78rem' }}>
+              {log.sent_at ? new Date(log.sent_at).toLocaleString() : '-'}
+            </td>
+            <td style={{ padding: '0.6rem 0.75rem', textAlign: 'center', color: log.retry_count > 0 ? '#f59e0b' : 'var(--text-muted)' }}>
+              {log.retry_count || 0}
+            </td>
+          </tr>
+        ))}
+      </tbody>
+    </table>
+  ) : (
+    <p style={{ fontSize: '0.82rem', color: 'var(--text-muted)', padding: '0.75rem', background: 'rgba(255,255,255,0.02)', borderRadius: '0.5rem', textAlign: 'center' }}>
+      No emails sent to this employee yet.
+    </p>
+  )}
+</div>
                       </>
                     ) : null}
                   </div>

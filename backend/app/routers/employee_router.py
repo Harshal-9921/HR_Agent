@@ -452,3 +452,25 @@ def update_employee(
     db.commit()
     db.refresh(user)
     return {"message": "Employee updated successfully"}
+
+@router.get("/{user_id}/email-logs")
+def get_employee_email_logs(
+    user_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    """Get email delivery history for a specific employee."""
+    logs = db.query(models.EmailLog).filter(
+        models.EmailLog.user_id == user_id
+    ).order_by(models.EmailLog.id.desc()).all()
+    return [
+        {
+            "id": log.id,
+            "email_type": log.email_type,
+            "status": log.status.value if hasattr(log.status, 'value') else log.status,
+            "sent_at": log.sent_at,
+            "error_message": log.error_message,
+            "retry_count": log.retry_count
+        }
+        for log in logs
+    ]
