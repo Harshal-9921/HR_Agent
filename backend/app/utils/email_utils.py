@@ -245,3 +245,18 @@ class EmailService:
             </body>
         </html>
         """
+    def __init__(self, settings=None):
+        if settings and settings.smtp_user and settings.smtp_password:
+            self.smtp_server = settings.smtp_server or SMTP_SERVER
+            self.smtp_port = settings.smtp_port or (int(SMTP_PORT) if SMTP_PORT else 587)
+            self.smtp_user = settings.smtp_user
+            self.smtp_password = settings.smtp_password
+            self.sender_email = settings.sender_email or settings.smtp_user
+            self.sender_name = settings.sender_name or "Accops HR Onboarding"
+        else:
+            self.smtp_server = SMTP_SERVER
+            self.smtp_port = int(SMTP_PORT) if SMTP_PORT else 587
+            self.smtp_user = SMTP_USER
+            self.smtp_password = SMTP_PASSWORD
+            self.sender_email = SENDER_EMAIL
+            self.sender_name = "Accops HR Onboarding"

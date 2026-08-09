@@ -121,3 +121,14 @@ class ActivityLog(Base):
     action = Column(String)
     details = Column(String, nullable=True)
     timestamp = Column(String, nullable=True)
+
+class EmailSettings(Base):
+    __tablename__ = "email_settings"
+    id = Column(Integer, primary_key=True, index=True)
+    sender_name = Column(String, default="Accops HR Onboarding")
+    sender_email = Column(String, nullable=True)
+    smtp_server = Column(String, default="smtp.gmail.com")
+    smtp_port = Column(Integer, default=587)
+    smtp_user = Column(String, nullable=True)
+    smtp_password = Column(String, nullable=True)
+    updated_at = Column(String, nullable=True)

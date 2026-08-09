@@ -12,17 +12,29 @@ const HRDashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmployee, setNewEmployee] = useState({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
   const [addMsg, setAddMsg] = useState('');
-  const [showChangePassword, setShowChangePassword] = useState(false);
-  const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
-  const [passwordMsg, setPasswordMsg] = useState('');
+ const [showChangePassword, setShowChangePassword] = useState(false);
+const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
+const [passwordMsg, setPasswordMsg] = useState('');
+const [showEmailSettings, setShowEmailSettings] = useState(false);
+const [emailSettings, setEmailSettings] = useState({
+  sender_name: '', sender_email: '', smtp_server: 'smtp.gmail.com',
+  smtp_port: 587, smtp_user: '', smtp_password: ''
+});
+const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
-const [editMsg, setEditMsg] = useState('');
-const navigate = useNavigate();
+  const [showEmailSettings, setShowEmailSettings] = useState(false);
+  const [emailSettings, setEmailSettings] = useState({
+    sender_name: '', sender_email: '', smtp_server: 'smtp.gmail.com',
+    smtp_port: 587, smtp_user: '', smtp_password: ''
+  });
+  const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
+  const [editMsg, setEditMsg] = useState('');
+  const navigate = useNavigate();
 
-const fetchData = async (includeArchived = false) => {
-  try {
-    const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
+  const fetchData = async (includeArchived = false) => {
+    try {
+      const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
       const data = res.data;
       setEmployees(data);
       const total = data.length;
@@ -31,15 +43,23 @@ const fetchData = async (includeArchived = false) => {
       const notStarted = data.filter(e => e.completion_pct === 0).length;
       const avgPct = total > 0 ? Math.round(data.reduce((sum, e) => sum + e.completion_pct, 0) / total) : 0;
       setStats({ total, completed, inProgress, notStarted, avgPct });
-  } catch (err){
+    } catch (err) {
       console.error('Failed to fetch employees:', err);
     }
-};
+  };
 
   useEffect(() => {
     fetchData(showArchived);
   }, [showArchived]);
 
+  const loadEmailSettings = async () => {
+    try {
+      const res = await api.get('/settings/email');
+      setEmailSettings(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -243,6 +263,70 @@ const fetchData = async (includeArchived = false) => {
     </div>
   </div>
 )}
+{/* ── Email Settings Modal ── */}
+      {showEmailSettings && (
+        <div className="modal-overlay">
+          <div className="auth-card" style={{ maxWidth: '500px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>Email Settings</h2>
+              <button onClick={() => { setShowEmailSettings(false); setEmailSettingsMsg(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await api.put('/settings/email', emailSettings);
+                setEmailSettingsMsg('Settings saved successfully!');
+              } catch (err) {
+                setEmailSettingsMsg('Failed to save settings.');
+              }
+            }}>
+              <div className="form-group">
+                <label>Sender Name</label>
+                <input type="text" className="form-control" value={emailSettings.sender_name || ''} onChange={e => setEmailSettings({...emailSettings, sender_name: e.target.value})} placeholder="Accops HR Onboarding" />
+              </div>
+              <div className="form-group">
+                <label>Sender Email</label>
+                <input type="email" className="form-control" value={emailSettings.sender_email || ''} onChange={e => setEmailSettings({...emailSettings, sender_email: e.target.value})} placeholder="onboarding@accops.com" />
+              </div>
+              <div className="form-group">
+                <label>SMTP Server</label>
+                <input type="text" className="form-control" value={emailSettings.smtp_server || ''} onChange={e => setEmailSettings({...emailSettings, smtp_server: e.target.value})} placeholder="smtp.gmail.com" />
+              </div>
+              <div className="form-group">
+                <label>SMTP Port</label>
+                <input type="number" className="form-control" value={emailSettings.smtp_port || 587} onChange={e => setEmailSettings({...emailSettings, smtp_port: parseInt(e.target.value)})} />
+              </div>
+              <div className="form-group">
+                <label>SMTP Username</label>
+                <input type="email" className="form-control" value={emailSettings.smtp_user || ''} onChange={e => setEmailSettings({...emailSettings, smtp_user: e.target.value})} placeholder="your@gmail.com" />
+              </div>
+              <div className="form-group">
+                <label>SMTP Password / App Password</label>
+                <input type="password" className="form-control" value={emailSettings.smtp_password || ''} onChange={e => setEmailSettings({...emailSettings, smtp_password: e.target.value})} placeholder={emailSettings.smtp_password_set ? '••••••••••••••••' : 'Enter App Password'} />
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>For Gmail, use an App Password (not your Gmail login password)</small>
+              </div>
+              {emailSettingsMsg && (
+                <p style={{ fontSize: '0.85rem', color: emailSettingsMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{emailSettingsMsg}</p>
+              )}
+              <div style={{ display: 'flex', gap: '0.75rem' }}>
+                <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+                  onClick={async () => {
+                    try {
+                      const res = await api.post('/settings/email/test');
+                      setEmailSettingsMsg(res.data.message);
+                    } catch (err) {
+                      setEmailSettingsMsg('Test failed: ' + (err.response?.data?.detail || err.message));
+                    }
+                  }}>
+                  Send Test Email
+                </button>
+                <button type="submit" className="btn">Save Settings</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
 
       {/* ── Sidebar ── */}
       <div className="sidebar">
@@ -265,6 +349,12 @@ const fetchData = async (includeArchived = false) => {
           <button className="nav-item" onClick={() => setShowChangePassword(true)} style={{ color: 'var(--text-muted)' }}>
             Change Password
           </button>
+          <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }} style={{ color: 'var(--text-muted)' }}>
+             Email Settings
+          </button>
+          <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }}>
+  Email Settings
+</button>
           <button className="nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
             <LogOut size={20} /> Sign Out
           </button>

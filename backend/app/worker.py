@@ -1,10 +1,13 @@
 # -*- coding: utf-8 -*-
-from celery import Celery
-from celery.schedules import crontab
+from celery import Celery  # type: ignore[import]
+try:
+    from celery.schedules import crontab  # type: ignore[import]
+except ImportError:
+    from celery.beat import crontab  # type: ignore[import]
 from datetime import datetime, timedelta
 import os
 from .database import SessionLocal
-from .models import User, EmailLog, EmailStatus, OnboardingProgress, ModuleProgress, Content, RoleEnum
+from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum
 from .utils.email_utils import EmailService
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
@@ -56,7 +59,14 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
         if not user:
             return
 
-        email_service = EmailService()
+        from .database import SessionLocal as _SessionLocal
+        from .models import EmailSettings as _EmailSettings
+        _db = _SessionLocal()
+        try:
+            _settings = _db.query(_EmailSettings).first()
+            email_service = EmailService(settings=_settings)
+        finally:
+            _db.close()
         first_name = user.name.split()[0] if user.name else "New Joiner"
         personal_email = user.personal_email or user.email
         company_email = user.email
