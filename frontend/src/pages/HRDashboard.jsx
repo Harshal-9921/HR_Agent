@@ -18,11 +18,8 @@ const [passwordMsg, setPasswordMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
-  const [emailSettings, setEmailSettings] = useState({
-    sender_name: '', sender_email: '', smtp_server: 'smtp.gmail.com',
-    smtp_port: 587, smtp_user: '', smtp_password: ''
-  });
-  const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
+const [emailSettings, setEmailSettings] = useState({ cc_emails: '' });
+const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
   const [editMsg, setEditMsg] = useState('');
   const navigate = useNavigate();
 
@@ -276,31 +273,6 @@ const [passwordMsg, setPasswordMsg] = useState('');
               }
             }}>
               <div className="form-group">
-                <label>Sender Name</label>
-                <input type="text" className="form-control" value={emailSettings.sender_name || ''} onChange={e => setEmailSettings({...emailSettings, sender_name: e.target.value})} placeholder="Accops HR Onboarding" />
-              </div>
-              <div className="form-group">
-                <label>Sender Email</label>
-                <input type="email" className="form-control" value={emailSettings.sender_email || ''} onChange={e => setEmailSettings({...emailSettings, sender_email: e.target.value})} placeholder="onboarding@accops.com" />
-              </div>
-              <div className="form-group">
-                <label>SMTP Server</label>
-                <input type="text" className="form-control" value={emailSettings.smtp_server || ''} onChange={e => setEmailSettings({...emailSettings, smtp_server: e.target.value})} placeholder="smtp.gmail.com" />
-              </div>
-              <div className="form-group">
-                <label>SMTP Port</label>
-                <input type="number" className="form-control" value={emailSettings.smtp_port || 587} onChange={e => setEmailSettings({...emailSettings, smtp_port: parseInt(e.target.value)})} />
-              </div>
-              <div className="form-group">
-                <label>SMTP Username</label>
-                <input type="email" className="form-control" value={emailSettings.smtp_user || ''} onChange={e => setEmailSettings({...emailSettings, smtp_user: e.target.value})} placeholder="your@gmail.com" />
-              </div>
-              <div className="form-group">
-                <label>SMTP Password / App Password</label>
-                <input type="password" className="form-control" value={emailSettings.smtp_password || ''} onChange={e => setEmailSettings({...emailSettings, smtp_password: e.target.value})} placeholder={emailSettings.smtp_password_set ? '••••••••••••••••' : 'Enter App Password'} />
-                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>For Gmail, use an App Password (not your Gmail login password)</small>
-              </div>
-              <div className="form-group">
   <label>CC Emails (for credentials email)</label>
   <input
     type="text"
@@ -310,7 +282,7 @@ const [passwordMsg, setPasswordMsg] = useState('');
     placeholder="it@accops.com, manager@accops.com"
   />
   <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-    Separate multiple emails with commas. These will be CC'd on all credentials emails.
+    Separate multiple emails with commas. These will be CC'd on all credentials emails. The sending account itself is fixed and managed by IT.
   </small>
 </div>
               {emailSettingsMsg && (

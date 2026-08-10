@@ -88,13 +88,13 @@ class EmailService:
                         <p>Hi <strong>{name}</strong>,</p>
                         <p>Welcome to <strong>Accops</strong>! Today is the start of an amazing journey.</p>
                         <p>We've set up your onboarding account. Please use the following credentials to log in and begin your induction:</p>
-                        
+
                         <div style="background: #f9fafb; padding: 1.5rem; border-radius: 8px; border: 1px solid #e5e7eb; margin: 1.5rem 0;">
                             <p style="margin: 0.5rem 0;"><strong>Portal URL:</strong> <a href="http://localhost:5173/login" style="color: #6366f1;">Onboarding Portal</a></p>
                             <p style="margin: 0.5rem 0;"><strong>Username:</strong> {email}</p>
                             <p style="margin: 0.5rem 0;"><strong>Temporary Password:</strong> <code style="background: #eee; padding: 2px 4px; border-radius: 4px;">{password}</code></p>
                         </div>
-                        
+
                         <p style="color: #ef4444; font-size: 0.875rem;"><em>Note: You will be prompted to set a new password upon your first login for security.</em></p>
                         <p>Please complete your Induction Video and Assessment by the end of the day.</p>
                         <br>
@@ -249,18 +249,14 @@ class EmailService:
             </body>
         </html>
         """
-    def __init__(self, settings=None):
-        if settings and settings.smtp_user and settings.smtp_password:
-            self.smtp_server = settings.smtp_server or SMTP_SERVER
-            self.smtp_port = settings.smtp_port or (int(SMTP_PORT) if SMTP_PORT else 587)
-            self.smtp_user = settings.smtp_user
-            self.smtp_password = settings.smtp_password
-            self.sender_email = settings.sender_email or settings.smtp_user
-            self.sender_name = settings.sender_name or "Accops HR Onboarding"
-        else:
-            self.smtp_server = SMTP_SERVER
-            self.smtp_port = int(SMTP_PORT) if SMTP_PORT else 587
-            self.smtp_user = SMTP_USER
-            self.smtp_password = SMTP_PASSWORD
-            self.sender_email = SENDER_EMAIL
-            self.sender_name = "Accops HR Onboarding"
+
+    def __init__(self):
+        # Sender credentials always come from backend/.env — HR cannot change these.
+        # To switch the official sending account, update SMTP_USER / SMTP_PASSWORD /
+        # SENDER_EMAIL in backend/.env and restart the backend + celery_worker containers.
+        self.smtp_server = SMTP_SERVER
+        self.smtp_port = int(SMTP_PORT) if SMTP_PORT else 587
+        self.smtp_user = SMTP_USER
+        self.smtp_password = SMTP_PASSWORD
+        self.sender_email = SENDER_EMAIL
+        self.sender_name = "Accops HR Onboarding"
