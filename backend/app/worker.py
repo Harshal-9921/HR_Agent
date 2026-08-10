@@ -130,26 +130,32 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
 </html>
 """
             # Send welcome email
-            email_service.send_email(
-                to_email=personal_email,
-                subject=subject,
-                html_content=html_content
+            # Get CC emails from settings
+            cc_list = []
+            if _settings and _settings.cc_emails:
+              cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
+
+            result = email_service.send_email(
+              to_email=personal_email,
+              subject=subject,
+              html_content=html_content,
+              cc_emails=cc_list if cc_list else None
             )
 
-            # Log welcome email
-            log = EmailLog(
-                user_id=user_id,
-                email_type="Welcome",
-                status=EmailStatus.sent,
-                sent_at=datetime.now().isoformat()
+            # Log the Day 0 email
+            log_entry = EmailLog(
+              user_id=user_id,
+              email_type="Day 0",
+              status=EmailStatus.sent if result else EmailStatus.failed,
+              sent_at=datetime.now().isoformat()
             )
-            db.add(log)
+            db.add(log_entry)
             db.commit()
 
-            # Queue credentials email after 30 minutes
+            # Queue credentials email after 15 minutes
             send_credentials_email.apply_async(
-                args=[user_id, password],
-                countdown=900  # 15 minutes
+              args=[user_id, password],
+              countdown=900  # 15 minutes
             )
 
         elif email_type == "T-2":

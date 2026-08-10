@@ -15,6 +15,7 @@ class EmailSettingsUpdate(BaseModel):
     smtp_port: Optional[int] = None
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
+    cc_emails: Optional[str] = None
 
 @router.get("/email")
 def get_email_settings(
@@ -29,7 +30,9 @@ def get_email_settings(
             "smtp_server": "smtp.gmail.com",
             "smtp_port": 587,
             "smtp_user": "",
+            "cc_emails": settings.cc_emails or "",
             "smtp_password_set": False
+            
         }
     return {
         "sender_name": settings.sender_name,
@@ -38,6 +41,7 @@ def get_email_settings(
         "smtp_port": settings.smtp_port,
         "smtp_user": settings.smtp_user,
         "smtp_password_set": bool(settings.smtp_password),
+        "cc_emails": "",
         "updated_at": settings.updated_at
     }
 
@@ -57,6 +61,7 @@ def update_email_settings(
     if data.smtp_port: settings.smtp_port = data.smtp_port
     if data.smtp_user: settings.smtp_user = data.smtp_user
     if data.smtp_password: settings.smtp_password = data.smtp_password
+    if data.cc_emails is not None: settings.cc_emails = data.cc_emails
     settings.updated_at = datetime.now().isoformat()
     db.commit()
     return {"message": "Email settings updated successfully"}

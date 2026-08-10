@@ -16,9 +16,10 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USER)
 
 class EmailService:
     @staticmethod
-    def send_email(to_email: str, subject: str, html_content: str):
+    def send_email(to_email: str, subject: str, html_content: str, cc_emails: list = None) -> bool:
+        """Send an HTML email. Returns True on success, False on failure."""
         print(f"Attempting to send email to {to_email} via {SMTP_SERVER}...")
-        
+
         if not SMTP_USER or not SMTP_PASSWORD:
             print("ERROR: SMTP credentials missing!")
             return False
@@ -26,17 +27,20 @@ class EmailService:
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
         msg['To'] = to_email
+        if cc_emails:
+            msg['Cc'] = ', '.join(cc_emails)
         msg['Subject'] = subject
-
         msg.attach(MIMEText(html_content, 'html'))
 
+        all_recipients = [to_email] + (cc_emails or [])
+
         try:
-            # For Gmail on port 587, we use standard SMTP + starttls
             server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)
-            server.set_debuglevel(1) # Enable debug output for Celery logs
+            server.set_debuglevel(1)
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
-            server.send_message(msg)
+            # use sendmail to ensure recipients from Cc are included
+            server.sendmail(SENDER_EMAIL, all_recipients, msg.as_string())
             server.quit()
             print(f"Email sent successfully to {to_email}")
             return True

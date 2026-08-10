@@ -306,6 +306,19 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
                 <input type="password" className="form-control" value={emailSettings.smtp_password || ''} onChange={e => setEmailSettings({...emailSettings, smtp_password: e.target.value})} placeholder={emailSettings.smtp_password_set ? '••••••••••••••••' : 'Enter App Password'} />
                 <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>For Gmail, use an App Password (not your Gmail login password)</small>
               </div>
+              <div className="form-group">
+  <label>CC Emails (for credentials email)</label>
+  <input
+    type="text"
+    className="form-control"
+    value={emailSettings.cc_emails || ''}
+    onChange={e => setEmailSettings({...emailSettings, cc_emails: e.target.value})}
+    placeholder="it@accops.com, manager@accops.com"
+  />
+  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+    Separate multiple emails with commas. These will be CC'd on all credentials emails.
+  </small>
+</div>
               {emailSettingsMsg && (
                 <p style={{ fontSize: '0.85rem', color: emailSettingsMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{emailSettingsMsg}</p>
               )}

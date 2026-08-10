@@ -132,3 +132,4 @@ class EmailSettings(Base):
     smtp_user = Column(String, nullable=True)
     smtp_password = Column(String, nullable=True)
     updated_at = Column(String, nullable=True)
+    cc_emails = Column(String, nullable=True)  
