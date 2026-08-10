@@ -15,12 +15,6 @@ const HRDashboard = () => {
  const [showChangePassword, setShowChangePassword] = useState(false);
 const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
 const [passwordMsg, setPasswordMsg] = useState('');
-const [showEmailSettings, setShowEmailSettings] = useState(false);
-const [emailSettings, setEmailSettings] = useState({
-  sender_name: '', sender_email: '', smtp_server: 'smtp.gmail.com',
-  smtp_port: 587, smtp_user: '', smtp_password: ''
-});
-const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
@@ -365,9 +359,6 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
           <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }} style={{ color: 'var(--text-muted)' }}>
              Email Settings
           </button>
-          <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }}>
-  Email Settings
-</button>
           <button className="nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
             <LogOut size={20} /> Sign Out
           </button>
