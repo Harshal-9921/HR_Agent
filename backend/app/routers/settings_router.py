@@ -5,9 +5,7 @@ from typing import Optional
 from datetime import datetime
 from .. import models, auth
 from ..database import get_db
-
 router = APIRouter(prefix="/api/settings", tags=["Settings"])
-
 class EmailSettingsUpdate(BaseModel):
     sender_name: Optional[str] = None
     sender_email: Optional[str] = None
@@ -16,7 +14,6 @@ class EmailSettingsUpdate(BaseModel):
     smtp_user: Optional[str] = None
     smtp_password: Optional[str] = None
     cc_emails: Optional[str] = None
-
 @router.get("/email")
 def get_email_settings(
     db: Session = Depends(get_db),
@@ -30,7 +27,7 @@ def get_email_settings(
             "smtp_server": "smtp.gmail.com",
             "smtp_port": 587,
             "smtp_user": "",
-            "cc_emails": settings.cc_emails or "",
+            "cc_emails": "",
             "smtp_password_set": False
             
         }
@@ -41,10 +38,9 @@ def get_email_settings(
         "smtp_port": settings.smtp_port,
         "smtp_user": settings.smtp_user,
         "smtp_password_set": bool(settings.smtp_password),
-        "cc_emails": "",
+        "cc_emails": settings.cc_emails or "",
         "updated_at": settings.updated_at
     }
-
 @router.put("/email")
 def update_email_settings(
     data: EmailSettingsUpdate,
@@ -65,7 +61,6 @@ def update_email_settings(
     settings.updated_at = datetime.now().isoformat()
     db.commit()
     return {"message": "Email settings updated successfully"}
-
 @router.post("/email/test")
 async def test_email_settings(
     db: Session = Depends(get_db),
