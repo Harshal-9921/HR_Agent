@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, Boolean, Enum, DateTime
+from sqlalchemy import Column, Integer, String, Boolean, Enum, DateTime, ForeignKey 
 from datetime import datetime
 import enum
 from .database import Base
@@ -9,21 +9,21 @@ class RoleEnum(str, enum.Enum):
     full_time = "full_time"
     hr = "hr"
     admin = "admin"
-
 class User(Base):
     __tablename__ = "users"
 
     id = Column(Integer, primary_key=True, index=True)
     name = Column(String, index=True)
-    email = Column(String, unique=True, index=True) # Company Email
+    email = Column(String, unique=True, index=True)
     personal_email = Column(String, unique=True, index=True, nullable=True)
     hashed_password = Column(String)
     role = Column(Enum(RoleEnum), default=RoleEnum.full_time)
     department = Column(String, nullable=True)
-    doj = Column(String, nullable=True) # Date of Joining (simplifying as String for now)
+    doj = Column(String, nullable=True)
     is_first_login = Column(Boolean, default=True)
     is_active = Column(Boolean, default=True)
     is_archived = Column(Boolean, default=False)
+    onboarded_by = Column(Integer, ForeignKey("users.id"), nullable=True) 
 
 class EmailStatus(str, enum.Enum):
     sent = "sent"
