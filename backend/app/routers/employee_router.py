@@ -80,14 +80,15 @@ def create_employee(
     # Generate a temporary password
     temp_password = generate_random_password() 
     new_user = models.User(
-        name=data.name,
-        email=data.email or data.personal_email,  # Use personal_email if company email not provided
-        personal_email=data.personal_email,
-        hashed_password=auth.get_password_hash(temp_password),
-        role=data.role,
-        department=data.department,
-        doj=data.doj,
-        is_first_login=True
+    name=data.name,
+    email=data.email or data.personal_email,
+    personal_email=data.personal_email,
+    hashed_password=auth.get_password_hash(temp_password),
+    role=data.role,
+    department=data.department,
+    doj=data.doj,
+    is_first_login=True,
+    onboarded_by=current_user.id  
     )
     
     db.add(new_user)

@@ -99,6 +99,16 @@ def complete_module(
             log_action(db, current_user.id, "MODULE_COMPLETED", f"Completed module ID: {data.content_id} with score {data.score}/{data.total_questions}")
         db.refresh(existing)
 
+        if passed:
+            all_content_count = db.query(models.Content).count()
+            completed_count = db.query(models.ModuleProgress).filter(
+                models.ModuleProgress.user_id == current_user.id,
+                models.ModuleProgress.completed == True
+            ).count()
+            if all_content_count > 0 and completed_count >= all_content_count:
+                from ..worker import send_completion_email_to_hr
+                send_completion_email_to_hr.delay(current_user.id)
+
         if not passed and existing.attempt_count >= 2:
             raise HTTPException(
                 status_code=403,
@@ -135,6 +145,16 @@ def complete_module(
 
         db.commit()
         db.refresh(new_progress)
+
+        if passed:
+            all_content_count = db.query(models.Content).count()
+            completed_count = db.query(models.ModuleProgress).filter(
+                models.ModuleProgress.user_id == current_user.id,
+                models.ModuleProgress.completed == True
+            ).count()
+            if all_content_count > 0 and completed_count >= all_content_count:
+                from ..worker import send_completion_email_to_hr
+                send_completion_email_to_hr.delay(current_user.id)
 
         if not passed and new_progress.attempt_count >= 2:
             raise HTTPException(

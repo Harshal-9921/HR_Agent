@@ -63,8 +63,8 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
         from .models import EmailSettings as _EmailSettings
         _db = _SessionLocal()
         try:
-            _settings = _db.query(_EmailSettings).first()
-            email_service = EmailService(settings=_settings)
+                _settings = _db.query(_EmailSettings).first()
+                email_service = EmailService()
         finally:
             _db.close()
         first_name = user.name.split()[0] if user.name else "New Joiner"
@@ -321,7 +321,110 @@ def send_credentials_email(self, user_id: int, password: str):
         raise self.retry(exc=Exception("Credentials email failed, retrying..."), countdown=countdown)
     finally:
         db.close()
+@celery_app.task(bind=True, max_retries=3)
+def send_completion_email_to_hr(self, user_id: int):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return
 
+        settings = db.query(EmailSettings).first()
+        cc_list = []
+        if settings and settings.cc_emails:
+            cc_list = [e.strip() for e in settings.cc_emails.split(',') if e.strip()]
+
+        # Recipient: whoever onboarded this employee, falling back to all HR/admin
+        recipients = []
+        if user.onboarded_by:
+            hr = db.query(User).filter(User.id == user.onboarded_by).first()
+            if hr:
+                recipients = [hr.personal_email or hr.email]
+        if not recipients:
+            hr_users = db.query(User).filter(User.role.in_([RoleEnum.hr, RoleEnum.admin])).all()
+            recipients = [h.personal_email or h.email for h in hr_users]
+        if not recipients:
+            return
+
+        # Build module breakdown
+        content_map = {c.id: c.title for c in db.query(Content).all()}
+        progresses = db.query(ModuleProgress).filter(
+            ModuleProgress.user_id == user_id,
+            ModuleProgress.completed == True
+        ).all()
+
+        rows_html = ""
+        total_score = 0
+        total_questions = 0
+        for p in progresses:
+            title = content_map.get(p.content_id, f"Module {p.content_id}")
+            pct = int((p.score / p.total_questions) * 100) if p.total_questions else 0
+            total_score += p.score
+            total_questions += p.total_questions
+            rows_html += f"""
+            <tr>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;">{title}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center;">{p.score}/{p.total_questions}</td>
+              <td style="padding:8px;border-bottom:1px solid #e5e7eb;text-align:center;">{pct}%</td>
+            </tr>
+            """
+
+        overall_pct = int((total_score / total_questions) * 100) if total_questions else 0
+        rating = ("Excellent" if overall_pct >= 90 else
+                  "Good" if overall_pct >= 75 else
+                  "Needs Improvement" if overall_pct >= 50 else "Poor")
+
+        subject = f"Onboarding Completed: {user.name}"
+        html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <div style="background: linear-gradient(135deg, #22c55e, #16a34a); padding: 24px; border-radius: 10px; text-align: center; margin-bottom: 20px;">
+    <h1 style="color: white; margin: 0;">Onboarding Completed 🎉</h1>
+  </div>
+  <p><strong>{user.name}</strong> ({user.email}) has completed the full onboarding process.</p>
+  <table style="width: 100%; border-collapse: collapse; margin: 16px 0; font-size: 14px;">
+    <thead>
+      <tr style="background: #f9fafb;">
+        <th style="padding: 8px; text-align: left;">Module</th>
+        <th style="padding: 8px;">Score</th>
+        <th style="padding: 8px;">%</th>
+      </tr>
+    </thead>
+    <tbody>
+      {rows_html}
+    </tbody>
+  </table>
+  <p><strong>Overall Score:</strong> {total_score}/{total_questions} ({overall_pct}%)<br>
+  <strong>Rating:</strong> {rating}</p>
+  <p>Regards,<br><strong>Accops HR Onboarding System</strong></p>
+</body>
+</html>
+"""
+        email_service = EmailService()
+        for to_addr in recipients:
+            email_service.send_email(
+                to_email=to_addr,
+                subject=subject,
+                html_content=html_content,
+                cc_emails=cc_list if cc_list else None
+            )
+
+        log = EmailLog(
+            user_id=user_id,
+            email_type="Completion Report",
+            status=EmailStatus.sent,
+            sent_at=datetime.now().isoformat()
+        )
+        db.add(log)
+        db.commit()
+
+    except Exception as e:
+        db.rollback()
+        countdown = 2 ** self.request.retries * 60
+        raise self.retry(exc=Exception("Completion email failed, retrying..."), countdown=countdown)
+    finally:
+        db.close()
 
 # ─── Task: daily check ───────────────────────────────────────────────────────
 @celery_app.task
