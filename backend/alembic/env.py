@@ -1,3 +1,4 @@
+import os
 from logging.config import fileConfig
 
 from sqlalchemy import engine_from_config
@@ -20,6 +21,14 @@ if config.config_file_name is not None:
 # target_metadata = mymodel.Base.metadata
 from app.models import Base
 target_metadata = Base.metadata
+
+# Prefer DATABASE_URL from the environment (set correctly per-environment by
+# docker-compose.yml / backend/.env) over whatever is hardcoded in alembic.ini.
+# This lets the same alembic.ini work both inside Docker (db:5432) and on a
+# local machine running Postgres directly (localhost:5432).
+db_url = os.getenv("DATABASE_URL")
+if db_url:
+    config.set_main_option("sqlalchemy.url", db_url)
 
 # other values from the config, defined by the needs of env.py,
 # can be acquired:
