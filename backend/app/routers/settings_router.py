@@ -43,7 +43,7 @@ def update_email_settings(
     return {"message": "Email settings updated successfully"}
 
 @router.post("/email/test")
-async def test_email_settings(
+def test_email_settings(
     data: TestEmailRequest = TestEmailRequest(),
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
