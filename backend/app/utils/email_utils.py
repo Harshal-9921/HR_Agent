@@ -16,9 +16,11 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USER)
 
 class EmailService:
     @staticmethod
-    def send_email(to_email: str, subject: str, html_content: str, cc_emails: list = None) -> bool:
-        """Send an HTML email. Returns True on success, False on failure."""
-        print(f"Attempting to send email to {to_email} via {SMTP_SERVER}...")
+    @staticmethod
+    def send_email(to_email, subject: str, html_content: str, cc_emails: list = None) -> bool:
+        """Send an HTML email. to_email may be a string or a list of strings."""
+        to_list = to_email if isinstance(to_email, list) else [to_email]
+        print(f"Attempting to send email to {to_list} via {SMTP_SERVER}...")
 
         if not SMTP_USER or not SMTP_PASSWORD:
             print("ERROR: SMTP credentials missing!")
@@ -26,13 +28,13 @@ class EmailService:
 
         msg = MIMEMultipart()
         msg['From'] = SENDER_EMAIL
-        msg['To'] = to_email
+        msg['To'] = ', '.join(to_list)
         if cc_emails:
             msg['Cc'] = ', '.join(cc_emails)
         msg['Subject'] = subject
         msg.attach(MIMEText(html_content, 'html'))
 
-        all_recipients = [to_email] + (cc_emails or [])
+        all_recipients = to_list + (cc_emails or [])
 
         try:
             server = smtplib.SMTP(SMTP_SERVER, SMTP_PORT)

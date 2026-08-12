@@ -104,7 +104,7 @@ def forgot_password(email: str, db: Session = Depends(database.get_db)):
     db.commit()
 
     # Build reset link and send email
-    reset_link = f"http://localhost:5173/reset-password?token={token}"
+    reset_link = f"http://10.130.37.2/reset-password?token={token}"
     html = EmailService.get_password_reset_template(user.name, reset_link)
     
     recipients = list(set(filter(None, [user.email, user.personal_email])))

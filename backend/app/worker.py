@@ -9,6 +9,13 @@ import os
 from .database import SessionLocal
 from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum
 from .utils.email_utils import EmailService
+import secrets
+import string
+from . import auth
+
+def _generate_temp_password(length=10):
+    alphabet = string.ascii_letters + string.digits
+    return ''.join(secrets.choice(alphabet) for _ in range(length))
 
 REDIS_URL = os.getenv("REDIS_URL", "redis://localhost:6379/0")
 
@@ -402,13 +409,12 @@ def send_completion_email_to_hr(self, user_id: int):
 </html>
 """
         email_service = EmailService()
-        for to_addr in recipients:
-            email_service.send_email(
-                to_email=to_addr,
-                subject=subject,
-                html_content=html_content,
-                cc_emails=cc_list if cc_list else None
-            )
+        email_service.send_email(
+            to_email=recipients,
+            subject=subject,
+            html_content=html_content,
+            cc_emails=cc_list if cc_list else None
+        )
 
         log = EmailLog(
             user_id=user_id,
@@ -460,7 +466,10 @@ def daily_onboarding_check():
                 EmailLog.status == EmailStatus.sent
             ).first()
             if not already:
-                send_onboarding_email.delay(user.id, "Day 0", {"password": "Password@123"})
+                temp_password = _generate_temp_password()
+                user.hashed_password = auth.get_password_hash(temp_password)
+                db.commit()
+                send_onboarding_email.delay(user.id, "Day 0", {"password": temp_password})
 
         # 3. Daily Reminder + Escalation for incomplete employees
         all_content_count = db.query(Content).count()

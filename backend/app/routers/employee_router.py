@@ -105,7 +105,7 @@ def create_employee(
     db.commit()
     
     try:
-        from ..worker import send_onboarding_email, daily_onboarding_check
+        from ..worker import send_onboarding_email
         import logging
 
         today = datetime.now().date()
@@ -128,7 +128,6 @@ def create_employee(
         else:
             logging.warning(f"Could not parse DOJ for {new_user.email}: {new_user.doj}")
 
-        daily_onboarding_check.delay()
     except Exception as e:
         import logging
         logging.warning(f"Celery task could not be queued (Redis may not be running): {e}")
