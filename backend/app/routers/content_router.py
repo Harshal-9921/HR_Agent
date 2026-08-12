@@ -64,11 +64,15 @@ def reorder_modules(
 
 
 @router.post("/complete-module", response_model=schemas.ModuleProgressResponse)
+@router.post("/complete-module", response_model=schemas.ModuleProgressResponse)
 def complete_module(
     data: schemas.ModuleProgressCreate,
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.get_current_user)
 ):
+    if current_user.role in [models.RoleEnum.hr, models.RoleEnum.admin]:
+        raise HTTPException(status_code=403, detail="HR/Admin accounts cannot complete onboarding modules directly.")
+
     passed = data.total_questions == 0 or (data.score / data.total_questions) >= 0.5
 
     existing = db.query(models.ModuleProgress).filter(
