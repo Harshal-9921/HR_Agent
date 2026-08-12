@@ -184,9 +184,10 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
 </html>
 """
             email_service.send_email(
-                to_email=personal_email,
-                subject=subject,
-                html_content=html_content
+            to_email=personal_email,
+            subject=subject,
+            html_content=html_content,
+            cc_emails=cc_list if cc_list else None
             )
             log = EmailLog(
                 user_id=user_id,
@@ -244,7 +245,13 @@ def send_credentials_email(self, user_id: int, password: str):
         if not user:
             return
 
+        settings = db.query(EmailSettings).first()
+        cc_list = []
+        if settings and settings.cc_emails:
+            cc_list = [e.strip() for e in settings.cc_emails.split(',') if e.strip()]
+
         email_service = EmailService()
+        ...
         first_name = user.name.split()[0] if user.name else "New Joiner"
         personal_email = user.personal_email or user.email
         portal_url = "http://10.130.37.2"
