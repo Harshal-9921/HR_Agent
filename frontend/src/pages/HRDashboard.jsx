@@ -446,6 +446,18 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
                             style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(168,85,247,0.1)', color: '#a855f7', border: '1px solid #a855f7', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
                             {emp.is_archived ? 'Unarchive' : 'Archive'}
                           </button>
+                          <button onClick={async () => {
+  if (!window.confirm(`Are you sure you want to permanently delete ${emp.name}? This cannot be undone.`)) return;
+  try {
+    await api.delete(`/employees/${emp.id}`);
+    await fetchData(showArchived);
+  } catch (err) {
+    alert('Failed: ' + (err.response?.data?.detail || err.message));
+  }
+}}
+  style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(239,68,68,0.15)', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+  Delete
+</button>
                         </div>
                       </td>
                     </tr>

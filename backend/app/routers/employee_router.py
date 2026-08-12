@@ -474,3 +474,27 @@ def get_employee_email_logs(
         }
         for log in logs
     ]
+
+@router.delete("/{employee_id}")
+def delete_employee(
+    employee_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    employee = db.query(models.User).filter(models.User.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    if employee.role in [models.RoleEnum.hr, models.RoleEnum.admin]:
+        raise HTTPException(status_code=403, detail="Cannot delete HR/Admin accounts from this endpoint")
+
+    # Clean up related records first to avoid foreign-key errors
+    db.query(models.OnboardingProgress).filter(models.OnboardingProgress.user_id == employee_id).delete()
+    db.query(models.ModuleProgress).filter(models.ModuleProgress.user_id == employee_id).delete()
+    db.query(models.EmailLog).filter(models.EmailLog.user_id == employee_id).delete()
+    db.query(models.PasswordResetToken).filter(models.PasswordResetToken.user_id == employee_id).delete()
+    db.query(models.EmployeeSubmission).filter(models.EmployeeSubmission.user_id == employee_id).delete()
+    db.query(models.ActivityLog).filter(models.ActivityLog.user_id == employee_id).delete()
+
+    db.delete(employee)
+    db.commit()
+    return {"message": "Employee deleted successfully"}
