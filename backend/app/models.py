@@ -133,3 +133,12 @@ class EmailSettings(Base):
     smtp_password = Column(String, nullable=True)
     updated_at = Column(String, nullable=True)
     cc_emails = Column(String, nullable=True)  
+
+class EmailTemplate(Base):
+    __tablename__ = "email_templates"
+    id = Column(Integer, primary_key=True, index=True)
+    template_key = Column(String, unique=True, index=True)
+    subject = Column(String, nullable=True)
+    html_body = Column(String, nullable=True)
+    updated_at = Column(String, nullable=True)
+    updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
