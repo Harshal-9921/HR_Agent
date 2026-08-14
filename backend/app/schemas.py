@@ -133,3 +133,7 @@ class ReportSummary(BaseModel):
     rating: str
     acknowledged_at: Optional[str] = None
     completion_date: Optional[str] = None
+
+class AlertEmailRequest(BaseModel):
+    subject: str
+    html_body: str
