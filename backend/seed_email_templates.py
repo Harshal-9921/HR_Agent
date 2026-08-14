@@ -120,6 +120,24 @@ TEMPLATES = [
 </html>
 """
     },
+    {
+        "template_key": "alert",
+        "subject": "Reminder: Complete Your Onboarding",
+        "html_body": """
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <p>Hi <strong>{name}</strong>,</p>
+  <p>This is a reminder to complete your onboarding. You have {remaining_count} module(s) remaining:</p>
+  <ul>{remaining_modules}</ul>
+  <div style="text-align: center; margin: 20px 0;">
+    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">Continue Onboarding</a>
+  </div>
+  <p>Regards,<br><strong>HR Team</strong></p>
+</body>
+</html>
+"""
+    },
 ]
 
 

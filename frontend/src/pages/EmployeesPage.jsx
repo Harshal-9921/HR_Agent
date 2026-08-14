@@ -27,7 +27,36 @@ const [loadingEmail, setLoadingEmail] = useState({});
       console.error(err);
     }
   };
+const [showAlertModal, setShowAlertModal] = useState(false);
+const [alertEmp, setAlertEmp] = useState(null);
+const [alertContent, setAlertContent] = useState({ subject: '', html_body: '' });
+const [alertMsg, setAlertMsg] = useState('');
+const [loadingAlert, setLoadingAlert] = useState(false);
 
+const openAlertModal = async (emp) => {
+  setAlertEmp(emp);
+  setShowAlertModal(true);
+  setAlertMsg('');
+  setLoadingAlert(true);
+  try {
+    const res = await api.get(`/employees/${emp.id}/alert-preview`);
+    setAlertContent({ subject: res.data.subject, html_body: res.data.html_body });
+  } catch (err) {
+    setAlertMsg('Failed to load preview: ' + (err.response?.data?.detail || err.message));
+  } finally {
+    setLoadingAlert(false);
+  }
+};
+
+const sendAlert = async () => {
+  try {
+    await api.post(`/employees/${alertEmp.id}/send-alert`, alertContent);
+    setAlertMsg('Alert email sent!');
+    setTimeout(() => { setShowAlertModal(false); setAlertMsg(''); }, 1500);
+  } catch (err) {
+    setAlertMsg('Failed to send: ' + (err.response?.data?.detail || err.message));
+  }
+};
   const fetchReport = async (empId) => {
     if (selectedReport === empId) {
       setSelectedReport(null);
@@ -227,15 +256,58 @@ return (
                         </div>
 
                         {/* Download button — OUTSIDE table */}
-                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem' }}>
-                          <button
-                            className="btn"
-                            style={{ width: 'auto', fontSize: '0.8rem', padding: '0.4rem 0.9rem' }}
-                            onClick={() => downloadCSV(`/employees/${emp.id}/report/csv`, `report_${emp.name.replace(/\s+/g, '_')}.csv`)}
-                          >
-                            Download Report (CSV)
-                          </button>
-                        </div>
+                        <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '1rem', gap: '0.75rem' }}>
+  <button
+    className="btn"
+    style={{ width: 'auto', fontSize: '0.8rem', padding: '0.4rem 0.9rem', background: 'rgba(245,158,11,0.15)', border: '1px solid #f59e0b', color: '#f59e0b' }}
+    onClick={() => openAlertModal(emp)}
+  >
+    Send Alert
+  </button>
+  <button
+    className="btn"
+    style={{ width: 'auto', fontSize: '0.8rem', padding: '0.4rem 0.9rem' }}
+    onClick={() => downloadCSV(`/employees/${emp.id}/report/csv`, `report_${emp.name.replace(/\s+/g, '_')}.csv`)}
+  >
+    Download Report (CSV)
+  </button>
+</div>
+{showAlertModal && (
+  <div className="modal-overlay">
+    <div className="auth-card" style={{ maxWidth: '600px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2>Send Alert to {alertEmp?.name}</h2>
+        <button onClick={() => setShowAlertModal(false)} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+      </div>
+      {loadingAlert ? (
+        <p style={{ color: 'var(--text-muted)', textAlign: 'center' }}>Loading...</p>
+      ) : (
+        <>
+          <div className="form-group">
+            <label>Subject</label>
+            <input type="text" className="form-control" value={alertContent.subject}
+              onChange={e => setAlertContent({ ...alertContent, subject: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label>Message</label>
+            <textarea className="form-control" rows={10} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+              value={alertContent.html_body}
+              onChange={e => setAlertContent({ ...alertContent, html_body: e.target.value })} />
+          </div>
+          {alertMsg && <p style={{ fontSize: '0.85rem', color: alertMsg.includes('sent') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{alertMsg}</p>}
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+              onClick={() => { const win = window.open('', '_blank'); win.document.write(alertContent.html_body); win.document.close(); }}>
+              Preview
+            </button>
+            <button className="btn" onClick={sendAlert}>Send Email</button>
+          </div>
+        </>
+      )}
+    </div>
+  </div>
+)}
+                        
 
                         {/* Module Table */}
                         <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '0.85rem' }}>

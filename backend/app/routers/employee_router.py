@@ -8,7 +8,7 @@ import csv
 import io
 import string
 import random
-
+from ..worker import send_alert_email_task, _render_template, _get_module_info
 from .. import schemas, models, auth, database
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -498,3 +498,56 @@ def delete_employee(
     db.delete(employee)
     db.commit()
     return {"message": "Employee deleted successfully"}
+
+@router.get("/{employee_id}/alert-preview")
+def get_alert_preview(
+    employee_id: int,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    employee = db.query(models.User).filter(models.User.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+
+    completed_titles, remaining_titles, total_count, completed_count = _get_module_info(db, employee_id)
+    remaining_html = "".join([f"<li>{m}</li>" for m in remaining_titles]) or "<li>None — all modules completed</li>"
+    first_name = employee.name.split()[0] if employee.name else "there"
+    portal_url = "http://10.130.37.2"
+
+    default_subject = "Reminder: Complete Your Onboarding"
+    default_html = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <p>Hi <strong>{first_name}</strong>,</p>
+  <p>This is a reminder to complete your onboarding. You have {total_count - completed_count} module(s) remaining:</p>
+  <ul>{remaining_html}</ul>
+  <div style="text-align: center; margin: 20px 0;">
+    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-weight: bold;">Continue Onboarding</a>
+  </div>
+  <p>Regards,<br><strong>HR Team</strong></p>
+</body>
+</html>
+"""
+    subject, html_body = _render_template(
+        db, "alert", default_subject, default_html,
+        name=first_name, portal_url=portal_url,
+        remaining_modules=remaining_html,
+        completed_count=completed_count, total_count=total_count,
+        remaining_count=total_count - completed_count
+    )
+    return {"subject": subject, "html_body": html_body}
+
+
+@router.post("/{employee_id}/send-alert")
+def send_alert(
+    employee_id: int,
+    data: schemas.AlertEmailRequest,
+    db: Session = Depends(database.get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    employee = db.query(models.User).filter(models.User.id == employee_id).first()
+    if not employee:
+        raise HTTPException(status_code=404, detail="Employee not found")
+    send_alert_email_task.delay(employee_id, data.subject, data.html_body)
+    return {"message": "Alert email queued"}
