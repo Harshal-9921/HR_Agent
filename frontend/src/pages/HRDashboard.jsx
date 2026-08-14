@@ -6,6 +6,12 @@ import {
 } from 'lucide-react';
 import api from '../api';
 
+const TEMPLATE_PLACEHOLDERS = {
+  welcome: '{name}, {portal_url}',
+  credentials: '{name}, {portal_url}, {email}, {password}',
+  completion: '{name}, {email}, {rows_html}, {total_score}, {total_questions}, {overall_pct}, {rating}'
+};
+
 const HRDashboard = () => {
   const [employees, setEmployees] = useState([]);
   const [stats, setStats] = useState({ total: 0, completed: 0, inProgress: 0, notStarted: 0, avgPct: 0 });
@@ -22,7 +28,11 @@ const [emailSettings, setEmailSettings] = useState({ cc_emails: '' });
 const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
   const [editMsg, setEditMsg] = useState('');
   const navigate = useNavigate();
-
+const [showEmailTemplates, setShowEmailTemplates] = useState(false);
+const [templatesList, setTemplatesList] = useState([]);
+const [selectedTemplateKey, setSelectedTemplateKey] = useState(null);
+const [templateEditor, setTemplateEditor] = useState({ subject: '', html_body: '' });
+const [templateMsg, setTemplateMsg] = useState('');
   const fetchData = async (includeArchived = false) => {
     try {
       const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
@@ -51,6 +61,44 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
       console.error(err);
     }
   };
+  const loadTemplatesList = async () => {
+  try {
+    const res = await api.get('/settings/templates');
+    setTemplatesList(res.data);
+  } catch (err) {
+    console.error(err);
+  }
+};
+
+const openTemplateEditor = async (key) => {
+  try {
+    const res = await api.get(`/settings/templates/${key}`);
+    setTemplateEditor({ subject: res.data.subject || '', html_body: res.data.html_body || '' });
+    setSelectedTemplateKey(key);
+    setTemplateMsg('');
+  } catch (err) {
+    alert('Failed to load template: ' + (err.response?.data?.detail || err.message));
+  }
+};
+
+const saveTemplate = async () => {
+  try {
+    await api.put(`/settings/templates/${selectedTemplateKey}`, {
+      subject: templateEditor.subject,
+      html_body: templateEditor.html_body
+    });
+    setTemplateMsg('Saved successfully!');
+    loadTemplatesList();
+  } catch (err) {
+    setTemplateMsg('Failed to save: ' + (err.response?.data?.detail || err.message));
+  }
+};
+
+const previewTemplate = () => {
+  const win = window.open('', '_blank');
+  win.document.write(templateEditor.html_body);
+  win.document.close();
+};
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -306,6 +354,66 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
           </div>
         </div>
       )}
+      {showEmailTemplates && (
+  <div className="modal-overlay">
+    <div className="auth-card" style={{ maxWidth: '600px' }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+        <h2>{selectedTemplateKey ? `Edit: ${selectedTemplateKey}` : 'Email Templates'}</h2>
+        <button onClick={() => { setShowEmailTemplates(false); setSelectedTemplateKey(null); setTemplateMsg(''); }}
+          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+      </div>
+
+      {!selectedTemplateKey ? (
+        <div>
+          {templatesList.map(t => (
+            <div key={t.template_key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0', borderBottom: '1px solid var(--border)' }}>
+              <div>
+                <div style={{ fontWeight: '600', textTransform: 'capitalize' }}>{t.template_key}</div>
+                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.subject}</div>
+              </div>
+              <button className="btn" style={{ width: 'auto', fontSize: '0.8rem' }} onClick={() => openTemplateEditor(t.template_key)}>
+                Edit
+              </button>
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div>
+          <div className="form-group">
+            <label>Subject</label>
+            <input type="text" className="form-control" value={templateEditor.subject}
+              onChange={e => setTemplateEditor({ ...templateEditor, subject: e.target.value })} />
+          </div>
+          <div className="form-group">
+            <label>HTML Body</label>
+            <textarea className="form-control" rows={12} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
+              value={templateEditor.html_body}
+              onChange={e => setTemplateEditor({ ...templateEditor, html_body: e.target.value })} />
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+              Available placeholders: {TEMPLATE_PLACEHOLDERS[selectedTemplateKey] || 'none'}
+            </small>
+          </div>
+          {templateMsg && (
+            <p style={{ fontSize: '0.85rem', color: templateMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{templateMsg}</p>
+          )}
+          <div style={{ display: 'flex', gap: '0.75rem' }}>
+            <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+              onClick={() => setSelectedTemplateKey(null)}>
+              ← Back
+            </button>
+            <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+              onClick={previewTemplate}>
+              Preview
+            </button>
+            <button className="btn" onClick={saveTemplate}>
+              Save Template
+            </button>
+          </div>
+        </div>
+      )}
+    </div>
+  </div>
+)}
 
       {/* ── Sidebar ── */}
       <div className="sidebar">
@@ -331,6 +439,9 @@ const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
           <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }} style={{ color: 'var(--text-muted)' }}>
              Email Settings
           </button>
+          <button className="nav-item" onClick={() => { setShowEmailTemplates(true); setSelectedTemplateKey(null); loadTemplatesList(); }} style={{ color: 'var(--text-muted)' }}>
+  Email Templates
+</button>
           <button className="nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
             <LogOut size={20} /> Sign Out
           </button>
