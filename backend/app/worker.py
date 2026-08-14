@@ -469,6 +469,40 @@ def send_completion_email_to_hr(self, user_id: int):
     finally:
         db.close()
 
+@celery_app.task(bind=True, max_retries=3)
+def send_alert_email_task(self, user_id: int, subject: str, html_content: str):
+    db = SessionLocal()
+    try:
+        user = db.query(User).filter(User.id == user_id).first()
+        if not user:
+            return
+        settings = db.query(EmailSettings).first()
+        cc_list = []
+        if settings and settings.cc_emails:
+            cc_list = [e.strip() for e in settings.cc_emails.split(',') if e.strip()]
+        personal_email = user.personal_email or user.email
+        email_service = EmailService()
+        email_service.send_email(
+            to_email=personal_email,
+            subject=subject,
+            html_content=html_content,
+            cc_emails=cc_list if cc_list else None
+        )
+        log = EmailLog(
+            user_id=user_id,
+            email_type="Manual Alert",
+            status=EmailStatus.sent,
+            sent_at=datetime.now().isoformat()
+        )
+        db.add(log)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        countdown = 2 ** self.request.retries * 60
+        raise self.retry(exc=Exception("Alert email failed, retrying..."), countdown=countdown)
+    finally:
+        db.close()
+        
 # ─── Task: daily check ───────────────────────────────────────────────────────
 @celery_app.task
 def daily_onboarding_check():

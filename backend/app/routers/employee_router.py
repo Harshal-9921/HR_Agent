@@ -8,7 +8,7 @@ import csv
 import io
 import string
 import random
-from ..worker import send_alert_email_task, _render_template, _get_module_info
+
 from .. import schemas, models, auth, database
 
 router = APIRouter(prefix="/api/employees", tags=["employees"])
@@ -505,6 +505,8 @@ def get_alert_preview(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
 ):
+    from ..worker import _render_template, _get_module_info
+
     employee = db.query(models.User).filter(models.User.id == employee_id).first()
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
@@ -546,6 +548,8 @@ def send_alert(
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
 ):
+    from ..worker import send_alert_email_task
+
     employee = db.query(models.User).filter(models.User.id == employee_id).first()
     if not employee:
         raise HTTPException(status_code=404, detail="Employee not found")
