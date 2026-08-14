@@ -10,6 +10,10 @@ router = APIRouter(prefix="/api/settings", tags=["Settings"])
 class EmailSettingsUpdate(BaseModel):
     cc_emails: Optional[str] = None
 
+class EmailTemplateUpdate(BaseModel):
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
+
 class TestEmailRequest(BaseModel):
     to_email: Optional[str] = None  # if omitted, falls back to current_user.email
 
@@ -66,3 +70,57 @@ def test_email_settings(
         return {"success": result, "message": f"Test email sent to {target}!" if result else "Failed to send"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/templates")
+def list_templates(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    templates = db.query(models.EmailTemplate).all()
+    return [
+        {
+            "template_key": t.template_key,
+            "subject": t.subject,
+            "updated_at": t.updated_at
+        }
+        for t in templates
+    ]
+
+@router.get("/templates/{template_key}")
+def get_template(
+    template_key: str,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    template = db.query(models.EmailTemplate).filter(
+        models.EmailTemplate.template_key == template_key
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    return {
+        "template_key": template.template_key,
+        "subject": template.subject,
+        "html_body": template.html_body,
+        "updated_at": template.updated_at
+    }
+
+@router.put("/templates/{template_key}")
+def update_template(
+    template_key: str,
+    data: EmailTemplateUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    template = db.query(models.EmailTemplate).filter(
+        models.EmailTemplate.template_key == template_key
+    ).first()
+    if not template:
+        raise HTTPException(status_code=404, detail="Template not found")
+    if data.subject is not None:
+        template.subject = data.subject
+    if data.html_body is not None:
+        template.html_body = data.html_body
+    template.updated_at = datetime.now().isoformat()
+    template.updated_by = current_user.id
+    db.commit()
+    return {"message": "Template updated successfully"}
