@@ -7,7 +7,7 @@ except ImportError:
 from datetime import datetime, timedelta
 import os
 from .database import SessionLocal
-from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum
+from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum, EmailTemplate
 from .utils.email_utils import EmailService
 import secrets
 import string
@@ -56,6 +56,23 @@ def _get_module_info(db, user_id):
     remaining_titles = [c.title for c in all_content if c.id not in completed_ids]
     return completed_titles, remaining_titles, len(all_content), len(completed_ids)
 
+def _render_template(db, key, default_subject, default_body, **kwargs):
+    """Load subject/body from the DB EmailTemplate table if HR has saved one;
+    otherwise fall back to the hardcoded default. If placeholder substitution
+    fails (e.g. a typo in a saved template), fall back to the raw unformatted
+    text rather than breaking the send entirely."""
+    template = db.query(EmailTemplate).filter(EmailTemplate.template_key == key).first()
+    subject = template.subject if (template and template.subject) else default_subject
+    body = template.html_body if (template and template.html_body) else default_body
+    try:
+        subject = subject.format(**kwargs)
+    except Exception:
+        pass
+    try:
+        body = body.format(**kwargs)
+    except Exception:
+        pass
+    return subject, body
 
 # ─── Task: send 2 emails ────────────────────────────────────────────────
 @celery_app.task(bind=True, max_retries=3)
@@ -82,8 +99,8 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
 
         if email_type == "Day 0":
             # EMAIL 1 — Welcome Email 
-            subject = "Welcome to Accops Systems! 🎉"
-            html_content = f"""
+            default_subject = "Welcome to Accops Systems! 🎉"
+            default_html = f"""
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -136,8 +153,12 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
 </body>
 </html>
 """
+            subject, html_content = _render_template(
+                db, "welcome", default_subject, default_html,
+                name=first_name, portal_url=portal_url
+            )
+
             # Send welcome email
-            # Get CC emails from settings
             cc_list = []
             if _settings and _settings.cc_emails:
               cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
@@ -255,8 +276,8 @@ def send_credentials_email(self, user_id: int, password: str):
         personal_email = user.personal_email or user.email
         portal_url = "http://10.130.37.2"
 
-        subject = "Your Accops Onboarding Portal Credentials"
-        html_content = f"""
+        default_subject = "Your Accops Onboarding Portal Credentials"
+        default_html = f"""
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -313,6 +334,10 @@ def send_credentials_email(self, user_id: int, password: str):
 </body>
 </html>
 """
+        subject, html_content = _render_template(
+            db, "credentials", default_subject, default_html,
+            name=first_name, portal_url=portal_url, email=user.email, password=password
+        )
         email_service.send_email(
             to_email=personal_email,
             subject=subject,
@@ -387,8 +412,8 @@ def send_completion_email_to_hr(self, user_id: int):
                   "Good" if overall_pct >= 75 else
                   "Needs Improvement" if overall_pct >= 50 else "Poor")
 
-        subject = f"Onboarding Completed: {user.name}"
-        html_content = f"""
+        default_subject = f"Onboarding Completed: {user.name}"
+        default_html = f"""
 <!DOCTYPE html>
 <html>
 <body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
@@ -414,6 +439,12 @@ def send_completion_email_to_hr(self, user_id: int):
 </body>
 </html>
 """
+        subject, html_content = _render_template(
+            db, "completion", default_subject, default_html,
+            name=user.name, email=user.email, rows_html=rows_html,
+            total_score=total_score, total_questions=total_questions,
+            overall_pct=overall_pct, rating=rating
+        )
         email_service = EmailService()
         email_service.send_email(
             to_email=recipients,
