@@ -14,3 +14,4 @@ redis
 emails
 httpx
 pypdf
+openpyxl

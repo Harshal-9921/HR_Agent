@@ -7,6 +7,13 @@ import shutil
 from datetime import datetime
 from .. import models, schemas, auth
 from ..database import get_db
+from fastapi.responses import StreamingResponse
+import csv
+import io
+try:
+    import openpyxl
+except ImportError:
+    openpyxl = None
 
 router = APIRouter(prefix="/api/content", tags=["Content Management"])
 
@@ -214,6 +221,106 @@ def delete_mcq(
     db.delete(mcq)
     db.commit()
     return {"message": "MCQ deleted"}
+
+@router.post("/{content_id}/mcqs/bulk")
+async def bulk_upload_mcqs(
+    content_id: int,
+    file: UploadFile = File(...),
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
+):
+    content = db.query(models.Content).filter(models.Content.id == content_id).first()
+    if not content:
+        raise HTTPException(status_code=404, detail="Content module not found")
+
+    filename = file.filename or ""
+    file_bytes = await file.read()
+
+    rows = []
+    if filename.lower().endswith(".csv"):
+        text = file_bytes.decode("utf-8-sig")
+        reader = csv.DictReader(io.StringIO(text))
+        for r in reader:
+            rows.append(r)
+    elif filename.lower().endswith((".xlsx", ".xls")):
+        if not openpyxl:
+            raise HTTPException(status_code=500, detail="Excel support not installed on server")
+        wb = openpyxl.load_workbook(io.BytesIO(file_bytes), data_only=True)
+        ws = wb.active
+        headers = [str(c.value).strip() if c.value else "" for c in ws[1]]
+        for row in ws.iter_rows(min_row=2, values_only=True):
+            if all(v is None for v in row):
+                continue
+            rows.append(dict(zip(headers, row)))
+    else:
+        raise HTTPException(status_code=400, detail="Unsupported file type. Please upload .csv or .xlsx")
+
+    created = 0
+    errors = []
+    for idx, row in enumerate(rows, start=2):
+        try:
+            question = str(row.get("Question") or row.get("question") or "").strip()
+            option_a = str(row.get("Option A") or row.get("option_a") or "").strip()
+            option_b = str(row.get("Option B") or row.get("option_b") or "").strip()
+            option_c = str(row.get("Option C") or row.get("option_c") or "").strip()
+            option_d = str(row.get("Option D") or row.get("option_d") or "").strip()
+            correct = str(row.get("Correct Answer") or row.get("correct_answer") or "").strip().upper()
+
+            if not question or not option_a or not option_b or not option_c or not option_d:
+                errors.append(f"Row {idx}: missing required field(s), skipped")
+                continue
+            if correct not in ("A", "B", "C", "D"):
+                errors.append(f"Row {idx}: invalid Correct Answer '{correct}' (must be A/B/C/D), skipped")
+                continue
+
+            mcq = models.MCQ(
+                content_id=content_id,
+                question=question,
+                option_a=option_a,
+                option_b=option_b,
+                option_c=option_c,
+                option_d=option_d,
+                correct_answer=correct
+            )
+            db.add(mcq)
+            created += 1
+        except Exception as e:
+            errors.append(f"Row {idx}: {str(e)}")
+
+    db.commit()
+    return {"created": created, "errors": errors}
+
+
+@router.get("/mcqs/template/csv")
+def download_mcq_template_csv():
+    output = io.StringIO()
+    writer = csv.writer(output)
+    writer.writerow(["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer"])
+    writer.writerow(["What is the capital of France?", "Paris", "London", "Berlin", "Madrid", "A"])
+    output.seek(0)
+    return StreamingResponse(
+        iter([output.getvalue()]),
+        media_type="text/csv",
+        headers={"Content-Disposition": "attachment; filename=mcq_upload_template.csv"}
+    )
+
+
+@router.get("/mcqs/template/xlsx")
+def download_mcq_template_xlsx():
+    if not openpyxl:
+        raise HTTPException(status_code=500, detail="Excel support not installed on server")
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.append(["Question", "Option A", "Option B", "Option C", "Option D", "Correct Answer"])
+    ws.append(["What is the capital of France?", "Paris", "London", "Berlin", "Madrid", "A"])
+    buf = io.BytesIO()
+    wb.save(buf)
+    buf.seek(0)
+    return StreamingResponse(
+        buf,
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": "attachment; filename=mcq_upload_template.xlsx"}
+    )
 
 # --- File Upload ---
 
