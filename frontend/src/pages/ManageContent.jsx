@@ -37,7 +37,8 @@ const ManageContent = () => {
   const [selectedDepts, setSelectedDepts] = useState([]);
   const [allDepts, setAllDepts] = useState(true);
   const navigate = useNavigate();
-
+const [uploadingMcqs, setUploadingMcqs] = useState(null); // content_id currently uploading
+const [uploadResult, setUploadResult] = useState(null); // { contentId, created, errors }
   
 
   useEffect(() => {
@@ -157,6 +158,43 @@ const ManageContent = () => {
     } catch (err) {
       alert('Upload failed: ' + err.message);
     }
+  };
+
+  const handleBulkMcqUpload = async (contentId, e) => {
+  const file = e.target.files[0];
+  if (!file) return;
+
+  const formData = new FormData();
+  formData.append('file', file);
+
+  setUploadingMcqs(contentId);
+  setUploadResult(null);
+  try {
+    const res = await api.post(`/content/${contentId}/mcqs/bulk`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    });
+    setUploadResult({ contentId, ...res.data });
+    fetchMcqs(contentId);
+  } catch (err) {
+    alert('Upload failed: ' + (err.response?.data?.detail || err.message));
+  } finally {
+    setUploadingMcqs(null);
+    e.target.value = ''; // allow re-selecting the same file later
+  }
+  };
+
+  const downloadMcqTemplate = async (format) => {
+  try {
+    const res = await api.get(`/content/mcqs/template/${format}`, { responseType: 'blob' });
+    const blob = new Blob([res.data]);
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = `mcq_upload_template.${format}`;
+    link.click();
+    window.URL.revokeObjectURL(link.href);
+  } catch (err) {
+    alert('Template download failed: ' + (err.response?.data?.detail || err.message));
+  }
   };
 
   return (
@@ -297,14 +335,52 @@ const ManageContent = () => {
               </div>
               
               <div style={{ padding: '1.5rem' }}>
-                <div className="flex-between" style={{ marginBottom: '1rem' }}>
+                <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                     <CheckCircle size={16} color="var(--primary-color)" /> Assessment Questions ({mcqs[item.id]?.length || 0})
                   </h4>
-                  <button className="btn" style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }} onClick={() => { setEditingMcq(null); setNewMcq({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A' }); setShowMcqModal(item.id); }}>
-  Add Question
-</button>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    <button className="btn" style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                      onClick={() => downloadMcqTemplate('csv')}>
+                      Template (CSV)
+                    </button>
+                    <button className="btn" style={{ width: 'auto', padding: '0.4rem 0.6rem', fontSize: '0.75rem', background: 'transparent', border: '1px solid var(--border)', color: 'var(--text-muted)' }}
+                      onClick={() => downloadMcqTemplate('xlsx')}>
+                      Template (Excel)
+                    </button>
+                    <button
+                      type="button"
+                      className="btn"
+                      style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }}
+                      onClick={() => document.getElementById(`mcq-bulk-upload-${item.id}`).click()}
+                      disabled={uploadingMcqs === item.id}
+                    >
+                      {uploadingMcqs === item.id ? 'Uploading...' : 'Bulk Upload'}
+                    </button>
+                    <input
+                      id={`mcq-bulk-upload-${item.id}`}
+                      type="file"
+                      accept=".csv,.xlsx,.xls"
+                      style={{ display: 'none' }}
+                      onChange={(e) => handleBulkMcqUpload(item.id, e)}
+                    />
+                    <button className="btn" style={{ width: 'auto', padding: '0.4rem 0.8rem', fontSize: '0.8rem', background: 'rgba(255,255,255,0.05)', border: '1px solid var(--border)' }} onClick={() => { setEditingMcq(null); setNewMcq({ question: '', option_a: '', option_b: '', option_c: '', option_d: '', correct_answer: 'A' }); setShowMcqModal(item.id); }}>
+                      Add Question
+                    </button>
+                  </div>
                 </div>
+                {uploadResult && uploadResult.contentId === item.id && (
+                  <div style={{ marginBottom: '1rem', padding: '0.75rem', borderRadius: '0.5rem', background: uploadResult.errors?.length ? 'rgba(245,158,11,0.1)' : 'rgba(34,197,94,0.1)', border: `1px solid ${uploadResult.errors?.length ? '#f59e0b' : '#22c55e'}`, fontSize: '0.8rem' }}>
+                    <p style={{ fontWeight: '600', marginBottom: uploadResult.errors?.length ? '0.5rem' : 0 }}>
+                      {uploadResult.created} question(s) added successfully.
+                    </p>
+                    {uploadResult.errors?.length > 0 && (
+                      <ul style={{ margin: 0, paddingLeft: '1.2rem', color: '#f59e0b' }}>
+                        {uploadResult.errors.map((e, i) => <li key={i}>{e}</li>)}
+                      </ul>
+                    )}
+                  </div>
+                )}
 
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                   {mcqs[item.id]?.map((m, idx) => (
