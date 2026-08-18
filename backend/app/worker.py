@@ -183,7 +183,7 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
             # Queue credentials email after 15 minutes
             send_credentials_email.apply_async(
               args=[user_id, password],
-              countdown=900  # 15 minutes
+              countdown=120  # 2 minutes
             )
 
         elif email_type == "T-2":
