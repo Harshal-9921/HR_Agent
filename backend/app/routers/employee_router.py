@@ -14,7 +14,7 @@ from .. import schemas, models, auth, database
 router = APIRouter(prefix="/api/employees", tags=["employees"])
 
 def generate_random_password(length=12):
-    characters = string.ascii_letters + string.digits + string.punctuation
+    characters = string.ascii_letters + string.digits + "!@#$%^*()-_=+"
     return ''.join(random.choice(characters) for i in range(length))
 
 @router.get("/", response_model=List[schemas.UserResponse])
