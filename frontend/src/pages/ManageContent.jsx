@@ -215,9 +215,9 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
           <button className="nav-item" onClick={() => navigate('/hr-dashboard')}>
             <LayoutDashboard size={20} /> HR Dashboard
           </button>
-          <button className="nav-item">
-            <Users size={20} /> Employees
-          </button>
+          <button className="nav-item" onClick={() => navigate('/employees')}>
+  <Users size={20} /> Employees
+</button>
           <button className="nav-item active">
             <Settings size={20} /> Manage Content
           </button>
