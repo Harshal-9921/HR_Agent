@@ -131,6 +131,7 @@ def create_employee(
     except Exception as e:
         import logging
         logging.warning(f"Celery task could not be queued (Redis may not be running): {e}")
+    return new_user
 @router.post("/{user_id}/control")
 def control_employee_progress(
     user_id: int,
