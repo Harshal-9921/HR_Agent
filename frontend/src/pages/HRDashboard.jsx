@@ -33,6 +33,10 @@ const [templatesList, setTemplatesList] = useState([]);
 const [selectedTemplateKey, setSelectedTemplateKey] = useState(null);
 const [templateEditor, setTemplateEditor] = useState({ subject: '', html_body: '' });
 const [templateMsg, setTemplateMsg] = useState('');
+const [newEmployeeFiles, setNewEmployeeFiles] = useState([]);
+const [includeDefaultSop, setIncludeDefaultSop] = useState(true);
+const [sopFile, setSopFile] = useState(null);
+const [sopUploading, setSopUploading] = useState(false);
   const fetchData = async (includeArchived = false) => {
     try {
       const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
@@ -61,6 +65,25 @@ const [templateMsg, setTemplateMsg] = useState('');
       console.error(err);
     }
   };
+  const handleSopUpload = async () => {
+  if (!sopFile) return;
+  setSopUploading(true);
+  try {
+    const formData = new FormData();
+    formData.append('file', sopFile);
+    const uploadRes = await api.post('/content/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    const filesystemPath = uploadRes.data.url.replace(/^\//, ''); // "/static/uploads/x" -> "static/uploads/x"
+    const updated = { ...emailSettings, default_sop_path: filesystemPath };
+    await api.put('/settings/email', updated);
+    setEmailSettings(updated);
+    setEmailSettingsMsg('Default SOP uploaded and saved!');
+    setSopFile(null);
+  } catch (err) {
+    setEmailSettingsMsg('Failed to upload SOP: ' + (err.response?.data?.detail || err.message));
+  } finally {
+    setSopUploading(false);
+  }
+};
   const loadTemplatesList = async () => {
   try {
     const res = await api.get('/settings/templates');
@@ -118,16 +141,28 @@ const previewTemplate = () => {
   };
 
   const handleAddEmployee = async (e) => {
-    e.preventDefault();
-    try {
-      await api.post('/employees/', newEmployee);
-      setAddMsg('Employee added successfully!');
-      setNewEmployee({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
-      setTimeout(() => { setShowAddModal(false); setAddMsg(''); fetchData(); }, 1500);
-    } catch (err) {
-      setAddMsg(err.response?.data?.detail || 'Failed to add employee.');
-    }
-  };
+  e.preventDefault();
+  try {
+    const formData = new FormData();
+    formData.append('name', newEmployee.name);
+    formData.append('email', newEmployee.email);
+    formData.append('personal_email', newEmployee.personal_email);
+    formData.append('department', newEmployee.department);
+    formData.append('doj', newEmployee.doj);
+    formData.append('role', newEmployee.role);
+    formData.append('include_default_sop', newEmployee.role === 'full_time' ? includeDefaultSop : false);
+    newEmployeeFiles.forEach(f => formData.append('attachments', f));
+
+    await api.post('/employees/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+    setAddMsg('Employee added successfully!');
+    setNewEmployee({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
+    setNewEmployeeFiles([]);
+    setIncludeDefaultSop(true);
+    setTimeout(() => { setShowAddModal(false); setAddMsg(''); fetchData(); }, 1500);
+  } catch (err) {
+    setAddMsg(err.response?.data?.detail || 'Failed to add employee.');
+  }
+};
 
   const getStatusBadge = (pct) => {
     if (pct === 100) return { label: 'Completed', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' };
@@ -223,6 +258,26 @@ const previewTemplate = () => {
                   <option value="intern">Intern</option>
                   <option value="consultant">Consultant</option>
                 </select>
+                              {newEmployee.role === 'full_time' && (
+                <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                  <input type="checkbox" checked={includeDefaultSop} onChange={e => setIncludeDefaultSop(e.target.checked)} id="include-sop" />
+                  <label htmlFor="include-sop" style={{ marginBottom: 0 }}>Attach default SOP document to welcome email</label>
+                </div>
+              )}
+              <div className="form-group">
+                <label>Additional Attachments (optional)</label>
+                <input type="file" multiple onChange={e => setNewEmployeeFiles([...newEmployeeFiles, ...Array.from(e.target.files)])} />
+                {newEmployeeFiles.length > 0 && (
+                  <ul style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--text-muted)', paddingLeft: '1.2rem' }}>
+                    {newEmployeeFiles.map((f, i) => (
+                      <li key={i} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                        {f.name}
+                        <button type="button" onClick={() => setNewEmployeeFiles(newEmployeeFiles.filter((_, idx) => idx !== i))} style={{ background: 'none', border: 'none', color: '#ef4444', cursor: 'pointer' }}>✕</button>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
               </div>
               {addMsg && <p style={{ fontSize: '0.85rem', color: addMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{addMsg}</p>}
               <div style={{ display: 'flex', gap: '1rem' }}>
@@ -320,6 +375,20 @@ const previewTemplate = () => {
                 setEmailSettingsMsg('Failed to save settings.');
               }
             }}>
+                            <div className="form-group">
+                <label>Default SOP Document (attached to Full-Time welcome emails)</label>
+                {emailSettings.default_sop_path && (
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+                    Current file: {emailSettings.default_sop_path.split('/').pop()}
+                  </p>
+                )}
+                <div style={{ display: 'flex', gap: '0.5rem' }}>
+                  <input type="file" onChange={e => setSopFile(e.target.files[0])} />
+                  <button type="button" className="btn" style={{ width: 'auto' }} disabled={!sopFile || sopUploading} onClick={handleSopUpload}>
+                    {sopUploading ? 'Uploading...' : 'Upload'}
+                  </button>
+                </div>
+              </div>
               <div className="form-group">
   <label>CC Emails (for credentials email)</label>
   <input

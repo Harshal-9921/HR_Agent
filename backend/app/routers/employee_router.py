@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Form, UploadFile, File
 from sqlalchemy.orm import Session
 from typing import List, Optional
 from datetime import datetime, timedelta
@@ -8,6 +8,8 @@ import csv
 import io
 import string
 import random
+import os
+import shutil
 
 from .. import schemas, models, auth, database
 
@@ -65,37 +67,62 @@ def get_employees_with_progress(
     return result
 
 @router.post("/", response_model=schemas.UserResponse)
-def create_employee(
-    data: schemas.UserCreate,
+async def create_employee(
+    name: str = Form(...),
+    email: Optional[str] = Form(None),
+    personal_email: str = Form(...),
+    role: models.RoleEnum = Form(...),
+    department: Optional[str] = Form(None),
+    doj: Optional[str] = Form(None),
+    include_default_sop: bool = Form(True),
+    attachments: List[UploadFile] = File(default=[]),
     db: Session = Depends(database.get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.admin, models.RoleEnum.hr]))
 ):
-    # Check if user already exists
     existing_user = db.query(models.User).filter(
-        (models.User.email == (data.email or data.personal_email)) | (models.User.personal_email == data.personal_email)
+        (models.User.email == (email or personal_email)) | (models.User.personal_email == personal_email)
     ).first()
     if existing_user:
         raise HTTPException(status_code=400, detail="User with this email already exists")
 
-    # Generate a temporary password
-    temp_password = generate_random_password() 
+    temp_password = generate_random_password()
     new_user = models.User(
-    name=data.name,
-    email=data.email or data.personal_email,
-    personal_email=data.personal_email,
-    hashed_password=auth.get_password_hash(temp_password),
-    role=data.role,
-    department=data.department,
-    doj=data.doj,
-    is_first_login=True,
-    onboarded_by=current_user.id  
+        name=name,
+        email=email or personal_email,
+        personal_email=personal_email,
+        hashed_password=auth.get_password_hash(temp_password),
+        role=role,
+        department=department,
+        doj=doj,
+        is_first_login=True,
+        onboarded_by=current_user.id
     )
-    
+
     db.add(new_user)
     db.commit()
     db.refresh(new_user)
-    
-    # Initialize Onboarding Progress
+
+    saved_paths = []
+    if attachments:
+        upload_dir = f"static/uploads/employee_attachments/{new_user.id}"
+        os.makedirs(upload_dir, exist_ok=True)
+        for f in attachments:
+            if not f.filename:
+                continue
+            dest_path = os.path.join(upload_dir, f.filename)
+            with open(dest_path, "wb") as out:
+                shutil.copyfileobj(f.file, out)
+            saved_paths.append(dest_path)
+
+    if not saved_paths and include_default_sop and role == models.RoleEnum.full_time:
+        settings = db.query(models.EmailSettings).first()
+        if settings and settings.default_sop_path:
+            saved_paths.append(settings.default_sop_path)
+
+    if saved_paths:
+        new_user.welcome_attachments = ",".join(saved_paths)
+        db.commit()
+
     progress = models.OnboardingProgress(
         user_id=new_user.id,
         current_step=1,
@@ -103,35 +130,35 @@ def create_employee(
     )
     db.add(progress)
     db.commit()
-    
+
     try:
         from ..worker import send_onboarding_email
         import logging
 
         today = datetime.now().date()
         try:
-            doj = datetime.strptime(str(new_user.doj), "%Y-%m-%d").date() if new_user.doj else None
+            doj_date = datetime.strptime(str(new_user.doj), "%Y-%m-%d").date() if new_user.doj else None
         except Exception:
-            doj = None
+            doj_date = None
 
-        if doj:
-            if doj <= today:
-                # Day 0 or past DOJ — send immediately
-                send_onboarding_email.delay(new_user.id, "Day 0", {"password": temp_password})
-                logging.info(f"Day 0 email queued for {new_user.email}, DOJ: {doj}")
-            elif doj == today + timedelta(days=2):
-                # T-2 email
-                send_onboarding_email.delay(new_user.id, "T-2", {"password": temp_password})
-                logging.info(f"T-2 email queued for {new_user.email}, DOJ: {doj}")
+        if doj_date:
+            if doj_date <= today:
+                send_onboarding_email.delay(new_user.id, "Day 0", {"password": temp_password, "attachment_paths": saved_paths})
+                logging.info(f"Day 0 email queued for {new_user.email}, DOJ: {doj_date}")
+            elif doj_date == today + timedelta(days=2):
+                send_onboarding_email.delay(new_user.id, "T-2", {"password": temp_password, "attachment_paths": saved_paths})
+                logging.info(f"T-2 email queued for {new_user.email}, DOJ: {doj_date}")
             else:
-                logging.info(f"No immediate email for {new_user.email} - DOJ {doj} is in future")
+                logging.info(f"No immediate email for {new_user.email} - DOJ {doj_date} is in future")
         else:
             logging.warning(f"Could not parse DOJ for {new_user.email}: {new_user.doj}")
 
     except Exception as e:
         import logging
         logging.warning(f"Celery task could not be queued (Redis may not be running): {e}")
+
     return new_user
+
 @router.post("/{user_id}/control")
 def control_employee_progress(
     user_id: int,
@@ -417,17 +444,6 @@ def toggle_archive(
     db.commit()
     return {"message": f"User {'archived' if user.is_archived else 'unarchived'} successfully.", "is_archived": user.is_archived}
 
-@router.get("/with-progress")
-def get_employees_with_progress(
-    include_archived: bool = False,
-    db: Session = Depends(database.get_db),
-    current_user: models.User = Depends(auth.require_role([models.RoleEnum.admin, models.RoleEnum.hr]))
-):
-    query = db.query(models.User).filter(models.User.role != models.RoleEnum.admin)
-    if not include_archived:
-        query = query.filter(models.User.is_archived == False)
-    employees = query.all()
-
 class UpdateEmployeeRequest(BaseModel):
     name: Optional[str] = None
     personal_email: Optional[str] = None
@@ -488,7 +504,6 @@ def delete_employee(
     if employee.role in [models.RoleEnum.hr, models.RoleEnum.admin]:
         raise HTTPException(status_code=403, detail="Cannot delete HR/Admin accounts from this endpoint")
 
-    # Clean up related records first to avoid foreign-key errors
     db.query(models.OnboardingProgress).filter(models.OnboardingProgress.user_id == employee_id).delete()
     db.query(models.ModuleProgress).filter(models.ModuleProgress.user_id == employee_id).delete()
     db.query(models.EmailLog).filter(models.EmailLog.user_id == employee_id).delete()

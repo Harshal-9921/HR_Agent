@@ -2,6 +2,7 @@
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from email.mime.application import MIMEApplication
 import os
 from dotenv import load_dotenv
 
@@ -16,9 +17,10 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USER)
 
 class EmailService:
     @staticmethod
-    @staticmethod
-    def send_email(to_email, subject: str, html_content: str, cc_emails: list = None) -> bool:
-        """Send an HTML email. to_email may be a string or a list of strings."""
+       @staticmethod
+    def send_email(to_email, subject: str, html_content: str, cc_emails: list = None, attachments: list = None) -> bool:
+        """Send an HTML email. to_email may be a string or a list of strings.
+        attachments, if given, is a list of filesystem paths to attach."""
         to_list = to_email if isinstance(to_email, list) else [to_email]
         print(f"Attempting to send email to {to_list} via {SMTP_SERVER}...")
 
@@ -34,6 +36,19 @@ class EmailService:
         msg['Subject'] = subject
         msg.attach(MIMEText(html_content, 'html'))
 
+        if attachments:
+            for path in attachments:
+                try:
+                    if not path or not os.path.isfile(path):
+                        print(f"WARNING: attachment not found, skipping: {path}")
+                        continue
+                    with open(path, 'rb') as f:
+                        part = MIMEApplication(f.read(), Name=os.path.basename(path))
+                    part['Content-Disposition'] = f'attachment; filename="{os.path.basename(path)}"'
+                    msg.attach(part)
+                except Exception as e:
+                    print(f"WARNING: failed to attach {path}: {e}")
+
         all_recipients = to_list + (cc_emails or [])
 
         try:
@@ -41,13 +56,12 @@ class EmailService:
             server.set_debuglevel(1)
             server.starttls()
             server.login(SMTP_USER, SMTP_PASSWORD)
-            # use sendmail to ensure recipients from Cc are included
             server.sendmail(SENDER_EMAIL, all_recipients, msg.as_string())
             server.quit()
-            print(f"Email sent successfully to {to_email}")
+            print(f"Email sent successfully to {to_list}")
             return True
         except Exception as e:
-            print(f"CRITICAL: Failed to send email to {to_email}: {str(e)}")
+            print(f"CRITICAL: Failed to send email to {to_list}: {str(e)}")
             return False
 
     @staticmethod
