@@ -188,9 +188,9 @@ const previewTemplate = () => {
                 <label>Full Name</label>
                 <input type="text" className="form-control" required value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} placeholder="John Doe" />
               </div>
-              <div className="form-group">
-                <label>Company Email</label>
-                <input type="email" className="form-control" required value={newEmployee.email} onChange={e => setNewEmployee({...newEmployee, email: e.target.value})} placeholder="john.doe@accops.com" />
+                            <div className="form-group">
+                <label>Username</label>
+                <input type="text" className="form-control" required value={newEmployee.email} onChange={e => setNewEmployee({...newEmployee, email: e.target.value})} placeholder="john.doe" />
               </div>
               <div className="form-group">
                 <label>Personal Email</label>

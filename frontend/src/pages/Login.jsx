@@ -81,15 +81,16 @@ const Login = () => {
           {error && <div className="alert alert-error">{error}</div>}
 
           <form onSubmit={handleLogin}>
-            <div className="form-group">
-              <label>EMAIL ADDRESS</label>
+                        <div className="form-group">
+              <label>USERNAME</label>
               <input
-                type="email"
+                type="text"
                 className="form-control"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                placeholder="your@email.com"
+                placeholder="your username"
+                autoCapitalize="none"
               />
             </div>
 

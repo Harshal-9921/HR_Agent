@@ -69,17 +69,17 @@ const ForgotPassword = () => {
               }}>
                 <Mail size={28} color="var(--primary-color)" />
               </div>
-              <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Reset Password</h1>
+                            <h1 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>Reset Password</h1>
               <p style={{ color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                Enter your email and we'll send you a reset link
+                Enter your personal email (not your login username) and we'll send you a reset link
               </p>
             </div>
 
             {error && <div className="alert alert-error">{error}</div>}
 
             <form onSubmit={handleSubmit}>
-              <div className="form-group">
-                <label>EMAIL ADDRESS</label>
+                            <div className="form-group">
+                <label>PERSONAL EMAIL</label>
                 <input
                   type="email"
                   className="form-control"
