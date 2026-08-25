@@ -24,7 +24,8 @@ class User(Base):
     is_active = Column(Boolean, default=True)
     is_archived = Column(Boolean, default=False)
     onboarded_by = Column(Integer, ForeignKey("users.id"), nullable=True) 
-
+    welcome_attachments = Column(String, nullable=True) 
+    
 class EmailStatus(str, enum.Enum):
     sent = "sent"
     failed = "failed"
@@ -132,7 +133,8 @@ class EmailSettings(Base):
     smtp_user = Column(String, nullable=True)
     smtp_password = Column(String, nullable=True)
     updated_at = Column(String, nullable=True)
-    cc_emails = Column(String, nullable=True)  
+    cc_emails = Column(String, nullable=True)
+    default_sop_path = Column(String, nullable=True)  
 
 class EmailTemplate(Base):
     __tablename__ = "email_templates"
