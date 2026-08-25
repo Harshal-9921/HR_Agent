@@ -17,7 +17,6 @@ SENDER_EMAIL = os.getenv("SENDER_EMAIL", SMTP_USER)
 
 class EmailService:
     @staticmethod
-       @staticmethod
     def send_email(to_email, subject: str, html_content: str, cc_emails: list = None, attachments: list = None) -> bool:
         """Send an HTML email. to_email may be a string or a list of strings.
         attachments, if given, is a list of filesystem paths to attach."""
@@ -267,9 +266,6 @@ class EmailService:
         """
 
     def __init__(self):
-        # Sender credentials always come from backend/.env — HR cannot change these.
-        # To switch the official sending account, update SMTP_USER / SMTP_PASSWORD /
-        # SENDER_EMAIL in backend/.env and restart the backend + celery_worker containers.
         self.smtp_server = SMTP_SERVER
         self.smtp_port = int(SMTP_PORT) if SMTP_PORT else 587
         self.smtp_user = SMTP_USER
