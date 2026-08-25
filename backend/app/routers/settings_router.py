@@ -9,6 +9,7 @@ router = APIRouter(prefix="/api/settings", tags=["Settings"])
 
 class EmailSettingsUpdate(BaseModel):
     cc_emails: Optional[str] = None
+    default_sop_path: Optional[str] = None
 
 class EmailTemplateUpdate(BaseModel):
     subject: Optional[str] = None
