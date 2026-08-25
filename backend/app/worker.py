@@ -163,11 +163,16 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
             if _settings and _settings.cc_emails:
               cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
 
+            attachment_paths = []
+            if context and context.get("attachment_paths"):
+                attachment_paths = context["attachment_paths"]
+
             result = email_service.send_email(
               to_email=personal_email,
               subject=subject,
               html_content=html_content,
-              cc_emails=cc_list if cc_list else None
+              cc_emails=cc_list if cc_list else None,
+              attachments=attachment_paths if attachment_paths else None
             )
 
             # Log the Day 0 email
