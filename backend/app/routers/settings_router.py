@@ -11,12 +11,8 @@ class EmailSettingsUpdate(BaseModel):
     cc_emails: Optional[str] = None
     default_sop_path: Optional[str] = None
 
-class EmailTemplateUpdate(BaseModel):
-    subject: Optional[str] = None
-    html_body: Optional[str] = None
-
 class TestEmailRequest(BaseModel):
-    to_email: Optional[str] = None  # if omitted, falls back to current_user.email
+    to_email: Optional[str] = None
 
 @router.get("/email")
 def get_email_settings(
@@ -25,9 +21,10 @@ def get_email_settings(
 ):
     settings = db.query(models.EmailSettings).first()
     if not settings:
-        return {"cc_emails": ""}
+        return {"cc_emails": "", "default_sop_path": ""}
     return {
         "cc_emails": settings.cc_emails or "",
+        "default_sop_path": settings.default_sop_path or "",
         "updated_at": settings.updated_at
     }
 
@@ -43,6 +40,8 @@ def update_email_settings(
         db.add(settings)
     if data.cc_emails is not None:
         settings.cc_emails = data.cc_emails
+    if data.default_sop_path is not None:
+        settings.default_sop_path = data.default_sop_path
     settings.updated_at = datetime.now().isoformat()
     db.commit()
     return {"message": "Email settings updated successfully"}
@@ -79,11 +78,7 @@ def list_templates(
 ):
     templates = db.query(models.EmailTemplate).all()
     return [
-        {
-            "template_key": t.template_key,
-            "subject": t.subject,
-            "updated_at": t.updated_at
-        }
+        {"template_key": t.template_key, "subject": t.subject, "updated_at": t.updated_at}
         for t in templates
     ]
 
@@ -104,6 +99,10 @@ def get_template(
         "html_body": template.html_body,
         "updated_at": template.updated_at
     }
+
+class EmailTemplateUpdate(BaseModel):
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
 
 @router.put("/templates/{template_key}")
 def update_template(
