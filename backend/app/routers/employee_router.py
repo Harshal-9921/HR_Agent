@@ -143,10 +143,10 @@ async def create_employee(
 
         if doj_date:
             if doj_date <= today:
-                send_onboarding_email.delay(new_user.id, "Day 0", {"password": temp_password, "attachment_paths": saved_paths})
+                send_onboarding_email.delay(new_user.id, "Day 0", { "attachment_paths": saved_paths})
                 logging.info(f"Day 0 email queued for {new_user.email}, DOJ: {doj_date}")
             elif doj_date == today + timedelta(days=2):
-                send_onboarding_email.delay(new_user.id, "T-2", {"password": temp_password, "attachment_paths": saved_paths})
+                send_onboarding_email.delay(new_user.id, "T-2", { "attachment_paths": saved_paths})
                 logging.info(f"T-2 email queued for {new_user.email}, DOJ: {doj_date}")
             else:
                 logging.info(f"No immediate email for {new_user.email} - DOJ {doj_date} is in future")

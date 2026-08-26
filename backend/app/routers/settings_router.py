@@ -1,3 +1,4 @@
+import json
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 from pydantic import BaseModel
@@ -92,11 +93,18 @@ def get_template(
         models.EmailTemplate.template_key == template_key
     ).first()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        return {"template_key": template_key, "subject": "", "html_body": "", "sections": {}}
+    sections = {}
+    if template.sections:
+        try:
+            sections = json.loads(template.sections)
+        except Exception:
+            sections = {}
     return {
         "template_key": template.template_key,
         "subject": template.subject,
         "html_body": template.html_body,
+        "sections": sections,
         "updated_at": template.updated_at
     }
 
@@ -115,12 +123,20 @@ def update_template(
         models.EmailTemplate.template_key == template_key
     ).first()
     if not template:
-        raise HTTPException(status_code=404, detail="Template not found")
+        template = models.EmailTemplate(template_key=template_key)
+        db.add(template)
     if data.subject is not None:
         template.subject = data.subject
     if data.html_body is not None:
         template.html_body = data.html_body
+    if data.sections is not None:
+        template.sections = json.dumps(data.sections)
     template.updated_at = datetime.now().isoformat()
     template.updated_by = current_user.id
     db.commit()
     return {"message": "Template updated successfully"}
+
+class EmailTemplateUpdate(BaseModel):
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
+    sections: Optional[dict] = None
