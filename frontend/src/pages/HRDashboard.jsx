@@ -258,7 +258,7 @@ const previewTemplate = () => {
                   <option value="intern">Intern</option>
                   <option value="consultant">Consultant</option>
                 </select>
-                              {newEmployee.role === 'full_time' && (
+              {newEmployee.role === 'full_time' && (
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <input type="checkbox" checked={includeDefaultSop} onChange={e => setIncludeDefaultSop(e.target.checked)} id="include-sop" />
                   <label htmlFor="include-sop" style={{ marginBottom: 0 }}>Attach default SOP document to welcome email</label>
