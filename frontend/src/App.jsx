@@ -9,6 +9,7 @@ import HRDashboard from './pages/HRDashboard';
 import ManageContent from './pages/ManageContent';
 import EmployeesPage from './pages/EmployeesPage';
 import ActivityLogsPage from './pages/ActivityLogsPage';
+import VerifyEmail from './pages/VerifyEmail';
 
 function App() {
   return (
@@ -24,6 +25,7 @@ function App() {
         <Route path="/employees" element={<EmployeesPage />} />
         <Route path="/activity-logs" element={<ActivityLogsPage />} />
         <Route path="/onboarding" element={<OnboardingFlow />} />
+        <Route path="/verify-email" element={<VerifyEmail />} />
       </Routes>
     </BrowserRouter>
   );

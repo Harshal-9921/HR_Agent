@@ -11,6 +11,7 @@ const TEMPLATE_PLACEHOLDERS = {
   credentials: '{name}, {portal_url}, {email}, {password}',
   completion: '{name}, {email}, {rows_html}, {total_score}, {total_questions}, {overall_pct}, {rating}'
 };
+const CANONICAL_TEMPLATES = ['welcome', 'credentials', 'completion', 'alert'];
 
 const HRDashboard = () => {
   const [employees, setEmployees] = useState([]);
@@ -18,25 +19,28 @@ const HRDashboard = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [newEmployee, setNewEmployee] = useState({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
   const [addMsg, setAddMsg] = useState('');
- const [showChangePassword, setShowChangePassword] = useState(false);
-const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
-const [passwordMsg, setPasswordMsg] = useState('');
+  const [showChangePassword, setShowChangePassword] = useState(false);
+  const [passwordData, setPasswordData] = useState({ newPass: '', confirm: '' });
+  const [passwordMsg, setPasswordMsg] = useState('');
   const [showArchived, setShowArchived] = useState(false);
   const [editingEmployee, setEditingEmployee] = useState(null);
   const [showEmailSettings, setShowEmailSettings] = useState(false);
-const [emailSettings, setEmailSettings] = useState({ cc_emails: '' });
-const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
+  const [emailSettings, setEmailSettings] = useState({ cc_emails: '' });
+  const [emailSettingsMsg, setEmailSettingsMsg] = useState('');
   const [editMsg, setEditMsg] = useState('');
   const navigate = useNavigate();
-const [showEmailTemplates, setShowEmailTemplates] = useState(false);
-const [templatesList, setTemplatesList] = useState([]);
-const [selectedTemplateKey, setSelectedTemplateKey] = useState(null);
-const [templateEditor, setTemplateEditor] = useState({ subject: '', html_body: '' });
-const [templateMsg, setTemplateMsg] = useState('');
-const [newEmployeeFiles, setNewEmployeeFiles] = useState([]);
-const [includeDefaultSop, setIncludeDefaultSop] = useState(true);
-const [sopFile, setSopFile] = useState(null);
-const [sopUploading, setSopUploading] = useState(false);
+  const [showEmailTemplates, setShowEmailTemplates] = useState(false);
+  const [templatesList, setTemplatesList] = useState([]);
+  const [selectedTemplateKey, setSelectedTemplateKey] = useState(null);
+  const [templateEditor, setTemplateEditor] = useState({ subject: '', html_body: '' });
+  const [templateMsg, setTemplateMsg] = useState('');
+  const [newEmployeeFiles, setNewEmployeeFiles] = useState([]);
+  const [includeDefaultSop, setIncludeDefaultSop] = useState(true);
+  const [sopFile, setSopFile] = useState(null);
+  const [sopUploading, setSopUploading] = useState(false);
+  const [templateRole, setTemplateRole] = useState('full_time');
+  const [templateSections, setTemplateSections] = useState({ body: '', cta_label: '', closing_note: '', salutation: '' });
+
   const fetchData = async (includeArchived = false) => {
     try {
       const res = await api.get(`/employees/with-progress${includeArchived ? '?include_archived=true' : ''}`);
@@ -57,6 +61,13 @@ const [sopUploading, setSopUploading] = useState(false);
     fetchData(showArchived);
   }, [showArchived]);
 
+  useEffect(() => {
+    if (selectedTemplateKey === 'welcome' && showEmailTemplates) {
+      openTemplateEditor('welcome');
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [templateRole]);
+
   const loadEmailSettings = async () => {
     try {
       const res = await api.get('/settings/email');
@@ -65,63 +76,81 @@ const [sopUploading, setSopUploading] = useState(false);
       console.error(err);
     }
   };
+
   const handleSopUpload = async () => {
-  if (!sopFile) return;
-  setSopUploading(true);
-  try {
-    const formData = new FormData();
-    formData.append('file', sopFile);
-    const uploadRes = await api.post('/content/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    const filesystemPath = uploadRes.data.url.replace(/^\//, ''); // "/static/uploads/x" -> "static/uploads/x"
-    const updated = { ...emailSettings, default_sop_path: filesystemPath };
-    await api.put('/settings/email', updated);
-    setEmailSettings(updated);
-    setEmailSettingsMsg('Default SOP uploaded and saved!');
-    setSopFile(null);
-  } catch (err) {
-    setEmailSettingsMsg('Failed to upload SOP: ' + (err.response?.data?.detail || err.message));
-  } finally {
-    setSopUploading(false);
-  }
-};
+    if (!sopFile) return;
+    setSopUploading(true);
+    try {
+      const formData = new FormData();
+      formData.append('file', sopFile);
+      const uploadRes = await api.post('/content/upload', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      const filesystemPath = uploadRes.data.url.replace(/^\//, ''); // "/static/uploads/x" -> "static/uploads/x"
+      const updated = { ...emailSettings, default_sop_path: filesystemPath };
+      await api.put('/settings/email', updated);
+      setEmailSettings(updated);
+      setEmailSettingsMsg('Default SOP uploaded and saved!');
+      setSopFile(null);
+    } catch (err) {
+      setEmailSettingsMsg('Failed to upload SOP: ' + (err.response?.data?.detail || err.message));
+    } finally {
+      setSopUploading(false);
+    }
+  };
+
   const loadTemplatesList = async () => {
-  try {
-    const res = await api.get('/settings/templates');
-    setTemplatesList(res.data);
-  } catch (err) {
-    console.error(err);
-  }
-};
+    try {
+      const res = await api.get('/settings/templates');
+      setTemplatesList(res.data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
-const openTemplateEditor = async (key) => {
-  try {
-    const res = await api.get(`/settings/templates/${key}`);
-    setTemplateEditor({ subject: res.data.subject || '', html_body: res.data.html_body || '' });
-    setSelectedTemplateKey(key);
-    setTemplateMsg('');
-  } catch (err) {
-    alert('Failed to load template: ' + (err.response?.data?.detail || err.message));
-  }
-};
+  const openTemplateEditor = async (key) => {
+    const actualKey = key === 'welcome' ? `welcome_${templateRole}` : key;
+    try {
+      const res = await api.get(`/settings/templates/${actualKey}`);
+      setTemplateEditor({ subject: res.data.subject || '', html_body: res.data.html_body || '' });
+      setTemplateSections(res.data.sections || { body: '', cta_label: '', closing_note: '', salutation: '' });
+      setSelectedTemplateKey(key);
+      setTemplateMsg('');
+    } catch (err) {
+      alert('Failed to load template: ' + (err.response?.data?.detail || err.message));
+    }
+  };
 
-const saveTemplate = async () => {
-  try {
-    await api.put(`/settings/templates/${selectedTemplateKey}`, {
-      subject: templateEditor.subject,
-      html_body: templateEditor.html_body
-    });
-    setTemplateMsg('Saved successfully!');
-    loadTemplatesList();
-  } catch (err) {
-    setTemplateMsg('Failed to save: ' + (err.response?.data?.detail || err.message));
-  }
-};
+  const saveTemplate = async () => {
+    const actualKey = selectedTemplateKey === 'welcome' ? `welcome_${templateRole}` : selectedTemplateKey;
+    try {
+      const payload = selectedTemplateKey === 'welcome'
+        ? { subject: templateEditor.subject, sections: templateSections }
+        : { subject: templateEditor.subject, html_body: templateEditor.html_body };
+      await api.put(`/settings/templates/${actualKey}`, payload);
+      setTemplateMsg('Saved successfully!');
+      loadTemplatesList();
+    } catch (err) {
+      setTemplateMsg('Failed to save: ' + (err.response?.data?.detail || err.message));
+    }
+  };
 
-const previewTemplate = () => {
-  const win = window.open('', '_blank');
-  win.document.write(templateEditor.html_body);
-  win.document.close();
-};
+  const previewTemplate = () => {
+    let html;
+    if (selectedTemplateKey === 'welcome') {
+      const s = templateSections;
+      html = `<div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:20px;color:#333;line-height:1.6;">
+      <p>Dear <strong>Sample Employee</strong>,</p>
+      ${(s.body || '').split('\n\n').filter(Boolean).map(p => `<p>${p.replace(/\n/g, '<br>')}</p>`).join('')}
+      ${s.cta_label ? `<div style="text-align:center;margin:25px 0;"><a href="#" style="background:#6366f1;color:white;padding:12px 30px;border-radius:6px;text-decoration:none;font-weight:bold;">${s.cta_label}</a></div>` : ''}
+      ${s.closing_note ? `<p>${s.closing_note.replace(/\n/g, '<br>')}</p>` : ''}
+      ${s.salutation ? `<p>${s.salutation.replace(/\n/g, '<br>')}</p>` : ''}
+    </div>`;
+    } else {
+      html = templateEditor.html_body;
+    }
+    const win = window.open('', '_blank');
+    win.document.write(html);
+    win.document.close();
+  };
 
   const handleLogout = () => {
     localStorage.removeItem('token');
@@ -141,28 +170,28 @@ const previewTemplate = () => {
   };
 
   const handleAddEmployee = async (e) => {
-  e.preventDefault();
-  try {
-    const formData = new FormData();
-    formData.append('name', newEmployee.name);
-    formData.append('email', newEmployee.email);
-    formData.append('personal_email', newEmployee.personal_email);
-    formData.append('department', newEmployee.department);
-    formData.append('doj', newEmployee.doj);
-    formData.append('role', newEmployee.role);
-    formData.append('include_default_sop', newEmployee.role === 'full_time' ? includeDefaultSop : false);
-    newEmployeeFiles.forEach(f => formData.append('attachments', f));
+    e.preventDefault();
+    try {
+      const formData = new FormData();
+      formData.append('name', newEmployee.name);
+      formData.append('email', newEmployee.email);
+      formData.append('personal_email', newEmployee.personal_email);
+      formData.append('department', newEmployee.department);
+      formData.append('doj', newEmployee.doj);
+      formData.append('role', newEmployee.role);
+      formData.append('include_default_sop', newEmployee.role === 'full_time' ? includeDefaultSop : false);
+      newEmployeeFiles.forEach(f => formData.append('attachments', f));
 
-    await api.post('/employees/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
-    setAddMsg('Employee added successfully!');
-    setNewEmployee({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
-    setNewEmployeeFiles([]);
-    setIncludeDefaultSop(true);
-    setTimeout(() => { setShowAddModal(false); setAddMsg(''); fetchData(); }, 1500);
-  } catch (err) {
-    setAddMsg(err.response?.data?.detail || 'Failed to add employee.');
-  }
-};
+      await api.post('/employees/', formData, { headers: { 'Content-Type': 'multipart/form-data' } });
+      setAddMsg('Employee added successfully!');
+      setNewEmployee({ name: '', email: '', personal_email: '', department: '', doj: '', role: 'full_time' });
+      setNewEmployeeFiles([]);
+      setIncludeDefaultSop(true);
+      setTimeout(() => { setShowAddModal(false); setAddMsg(''); fetchData(); }, 1500);
+    } catch (err) {
+      setAddMsg(err.response?.data?.detail || 'Failed to add employee.');
+    }
+  };
 
   const getStatusBadge = (pct) => {
     if (pct === 100) return { label: 'Completed', color: '#22c55e', bg: 'rgba(34,197,94,0.1)' };
@@ -223,7 +252,7 @@ const previewTemplate = () => {
                 <label>Full Name</label>
                 <input type="text" className="form-control" required value={newEmployee.name} onChange={e => setNewEmployee({...newEmployee, name: e.target.value})} placeholder="John Doe" />
               </div>
-                            <div className="form-group">
+              <div className="form-group">
                 <label>Username</label>
                 <input type="text" className="form-control" required value={newEmployee.email} onChange={e => setNewEmployee({...newEmployee, email: e.target.value})} placeholder="john.doe" />
               </div>
@@ -258,6 +287,7 @@ const previewTemplate = () => {
                   <option value="intern">Intern</option>
                   <option value="consultant">Consultant</option>
                 </select>
+              </div>
               {newEmployee.role === 'full_time' && (
                 <div className="form-group" style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                   <input type="checkbox" checked={includeDefaultSop} onChange={e => setIncludeDefaultSop(e.target.checked)} id="include-sop" />
@@ -278,7 +308,6 @@ const previewTemplate = () => {
                   </ul>
                 )}
               </div>
-              </div>
               {addMsg && <p style={{ fontSize: '0.85rem', color: addMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{addMsg}</p>}
               <div style={{ display: 'flex', gap: '1rem' }}>
                 <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setShowAddModal(false); setAddMsg(''); }}>Cancel</button>
@@ -290,74 +319,75 @@ const previewTemplate = () => {
       )}
 
       {editingEmployee && (
-  <div className="modal-overlay">
-    <div className="auth-card" style={{ maxWidth: '480px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2>Edit Employee</h2>
-        <button onClick={() => { setEditingEmployee(null); setEditMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
-      </div>
-      <form onSubmit={async (e) => {
-        e.preventDefault();
-        try {
-          await api.put(`/employees/${editingEmployee.id}`, {
-            name: editingEmployee.name,
-            personal_email: editingEmployee.personal_email,
-            department: editingEmployee.department,
-            doj: editingEmployee.doj,
-            role: editingEmployee.role,
-          });
-          setEditMsg('Employee updated successfully!');
-          setTimeout(() => { setEditingEmployee(null); setEditMsg(''); fetchData(showArchived); }, 1500);
-        } catch (err) {
-          setEditMsg(err.response?.data?.detail || 'Failed to update employee.');
-        }
-      }}>
-        <div className="form-group">
-          <label>Full Name</label>
-          <input type="text" className="form-control" value={editingEmployee.name} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} />
+        <div className="modal-overlay">
+          <div className="auth-card" style={{ maxWidth: '480px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>Edit Employee</h2>
+              <button onClick={() => { setEditingEmployee(null); setEditMsg(''); }} style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
+            </div>
+            <form onSubmit={async (e) => {
+              e.preventDefault();
+              try {
+                await api.put(`/employees/${editingEmployee.id}`, {
+                  name: editingEmployee.name,
+                  personal_email: editingEmployee.personal_email,
+                  department: editingEmployee.department,
+                  doj: editingEmployee.doj,
+                  role: editingEmployee.role,
+                });
+                setEditMsg('Employee updated successfully!');
+                setTimeout(() => { setEditingEmployee(null); setEditMsg(''); fetchData(showArchived); }, 1500);
+              } catch (err) {
+                setEditMsg(err.response?.data?.detail || 'Failed to update employee.');
+              }
+            }}>
+              <div className="form-group">
+                <label>Full Name</label>
+                <input type="text" className="form-control" value={editingEmployee.name} onChange={e => setEditingEmployee({...editingEmployee, name: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Personal Email</label>
+                <input type="email" className="form-control" value={editingEmployee.personal_email || ''} onChange={e => setEditingEmployee({...editingEmployee, personal_email: e.target.value})} placeholder="personal@gmail.com" />
+              </div>
+              <div className="form-group">
+                <label>Department</label>
+                <select className="form-control" value={editingEmployee.department || ''} onChange={e => setEditingEmployee({...editingEmployee, department: e.target.value})}>
+                  <option value="">Select Department</option>
+                  <option value="Engineering">Engineering</option>
+                  <option value="Sales">Sales</option>
+                  <option value="Pre-sales">Pre-sales</option>
+                  <option value="Marketing">Marketing</option>
+                  <option value="Product Management">Product Management</option>
+                  <option value="HR">HR</option>
+                  <option value="IT">IT</option>
+                  <option value="Administration">Administration</option>
+                  <option value="Finance and Accounts">Finance and Accounts</option>
+                  <option value="Customer Success">Customer Success</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Date of Joining</label>
+                <input type="date" className="form-control" value={editingEmployee.doj || ''} onChange={e => setEditingEmployee({...editingEmployee, doj: e.target.value})} />
+              </div>
+              <div className="form-group">
+                <label>Role</label>
+                <select className="form-control" value={editingEmployee.role || 'full_time'} onChange={e => setEditingEmployee({...editingEmployee, role: e.target.value})}>
+                  <option value="full_time">Full Time</option>
+                  <option value="intern">Intern</option>
+                  <option value="consultant">Consultant</option>
+                </select>
+              </div>
+              {editMsg && <p style={{ fontSize: '0.85rem', color: editMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{editMsg}</p>}
+              <div style={{ display: 'flex', gap: '1rem' }}>
+                <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setEditingEmployee(null); setEditMsg(''); }}>Cancel</button>
+                <button type="submit" className="btn">Save Changes</button>
+              </div>
+            </form>
+          </div>
         </div>
-        <div className="form-group">
-          <label>Personal Email</label>
-          <input type="email" className="form-control" value={editingEmployee.personal_email || ''} onChange={e => setEditingEmployee({...editingEmployee, personal_email: e.target.value})} placeholder="personal@gmail.com" />
-        </div>
-        <div className="form-group">
-          <label>Department</label>
-          <select className="form-control" value={editingEmployee.department || ''} onChange={e => setEditingEmployee({...editingEmployee, department: e.target.value})}>
-            <option value="">Select Department</option>
-            <option value="Engineering">Engineering</option>
-            <option value="Sales">Sales</option>
-            <option value="Pre-sales">Pre-sales</option>
-            <option value="Marketing">Marketing</option>
-            <option value="Product Management">Product Management</option>
-            <option value="HR">HR</option>
-            <option value="IT">IT</option>
-            <option value="Administration">Administration</option>
-            <option value="Finance and Accounts">Finance and Accounts</option>
-            <option value="Customer Success">Customer Success</option>
-          </select>
-        </div>
-        <div className="form-group">
-          <label>Date of Joining</label>
-          <input type="date" className="form-control" value={editingEmployee.doj || ''} onChange={e => setEditingEmployee({...editingEmployee, doj: e.target.value})} />
-        </div>
-        <div className="form-group">
-          <label>Role</label>
-          <select className="form-control" value={editingEmployee.role || 'full_time'} onChange={e => setEditingEmployee({...editingEmployee, role: e.target.value})}>
-            <option value="full_time">Full Time</option>
-            <option value="intern">Intern</option>
-            <option value="consultant">Consultant</option>
-          </select>
-        </div>
-        {editMsg && <p style={{ fontSize: '0.85rem', color: editMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{editMsg}</p>}
-        <div style={{ display: 'flex', gap: '1rem' }}>
-          <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }} onClick={() => { setEditingEmployee(null); setEditMsg(''); }}>Cancel</button>
-          <button type="submit" className="btn">Save Changes</button>
-        </div>
-      </form>
-    </div>
-  </div>
-)}
-{/* ── Email Settings Modal ── */}
+      )}
+
+      {/* ── Email Settings Modal ── */}
       {showEmailSettings && (
         <div className="modal-overlay">
           <div className="auth-card" style={{ maxWidth: '500px' }}>
@@ -375,7 +405,7 @@ const previewTemplate = () => {
                 setEmailSettingsMsg('Failed to save settings.');
               }
             }}>
-                            <div className="form-group">
+              <div className="form-group">
                 <label>Default SOP Document (attached to Full-Time welcome emails)</label>
                 {emailSettings.default_sop_path && (
                   <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
@@ -390,18 +420,18 @@ const previewTemplate = () => {
                 </div>
               </div>
               <div className="form-group">
-  <label>CC Emails (for credentials email)</label>
-  <input
-    type="text"
-    className="form-control"
-    value={emailSettings.cc_emails || ''}
-    onChange={e => setEmailSettings({...emailSettings, cc_emails: e.target.value})}
-    placeholder="it@accops.com, manager@accops.com"
-  />
-  <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-    Separate multiple emails with commas. These will be CC'd on all credentials emails. The sending account itself is fixed and managed by IT.
-  </small>
-</div>
+                <label>CC Emails (for credentials email)</label>
+                <input
+                  type="text"
+                  className="form-control"
+                  value={emailSettings.cc_emails || ''}
+                  onChange={e => setEmailSettings({...emailSettings, cc_emails: e.target.value})}
+                  placeholder="it@accops.com, manager@accops.com"
+                />
+                <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                  Separate multiple emails with commas. These will be CC'd on all credentials emails. The sending account itself is fixed and managed by IT.
+                </small>
+              </div>
               {emailSettingsMsg && (
                 <p style={{ fontSize: '0.85rem', color: emailSettingsMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{emailSettingsMsg}</p>
               )}
@@ -423,66 +453,118 @@ const previewTemplate = () => {
           </div>
         </div>
       )}
-      {showEmailTemplates && (
-  <div className="modal-overlay">
-    <div className="auth-card" style={{ maxWidth: '600px' }}>
-      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
-        <h2>{selectedTemplateKey ? `Edit: ${selectedTemplateKey}` : 'Email Templates'}</h2>
-        <button onClick={() => { setShowEmailTemplates(false); setSelectedTemplateKey(null); setTemplateMsg(''); }}
-          style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
-      </div>
 
-      {!selectedTemplateKey ? (
-        <div>
-          {templatesList.map(t => (
-            <div key={t.template_key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0', borderBottom: '1px solid var(--border)' }}>
-              <div>
-                <div style={{ fontWeight: '600', textTransform: 'capitalize' }}>{t.template_key}</div>
-                <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{t.subject}</div>
-              </div>
-              <button className="btn" style={{ width: 'auto', fontSize: '0.8rem' }} onClick={() => openTemplateEditor(t.template_key)}>
-                Edit
-              </button>
+      {/* ── Email Templates Modal ── */}
+      {showEmailTemplates && (
+        <div className="modal-overlay">
+          <div className="auth-card" style={{ maxWidth: '600px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1.5rem' }}>
+              <h2>{selectedTemplateKey ? `Edit: ${selectedTemplateKey}` : 'Email Templates'}</h2>
+              <button onClick={() => { setShowEmailTemplates(false); setSelectedTemplateKey(null); setTemplateMsg(''); }}
+                style={{ background: 'none', border: 'none', color: 'var(--text-muted)', fontSize: '1.5rem', cursor: 'pointer' }}>×</button>
             </div>
-          ))}
-        </div>
-      ) : (
-        <div>
-          <div className="form-group">
-            <label>Subject</label>
-            <input type="text" className="form-control" value={templateEditor.subject}
-              onChange={e => setTemplateEditor({ ...templateEditor, subject: e.target.value })} />
-          </div>
-          <div className="form-group">
-            <label>HTML Body</label>
-            <textarea className="form-control" rows={12} style={{ fontFamily: 'monospace', fontSize: '0.8rem' }}
-              value={templateEditor.html_body}
-              onChange={e => setTemplateEditor({ ...templateEditor, html_body: e.target.value })} />
-            <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-              Available placeholders: {TEMPLATE_PLACEHOLDERS[selectedTemplateKey] || 'none'}
-            </small>
-          </div>
-          {templateMsg && (
-            <p style={{ fontSize: '0.85rem', color: templateMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{templateMsg}</p>
-          )}
-          <div style={{ display: 'flex', gap: '0.75rem' }}>
-            <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
-              onClick={() => setSelectedTemplateKey(null)}>
-              ← Back
-            </button>
-            <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
-              onClick={previewTemplate}>
-              Preview
-            </button>
-            <button className="btn" onClick={saveTemplate}>
-              Save Template
-            </button>
+
+            {!selectedTemplateKey ? (
+              <div>
+                {CANONICAL_TEMPLATES.map(key => {
+                  const info = templatesList.find(t => t.template_key === key || t.template_key === `${key}_full_time`) || {};
+                  return (
+                    <div key={key} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '0.85rem 0', borderBottom: '1px solid var(--border)' }}>
+                      <div>
+                        <div style={{ fontWeight: '600', textTransform: 'capitalize' }}>{key}</div>
+                        <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>{info.subject || '(not customized yet)'}</div>
+                      </div>
+                      <button className="btn" style={{ width: 'auto', fontSize: '0.8rem' }} onClick={() => openTemplateEditor(key)}>
+                        Edit
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            ) : (
+              <div>
+                {selectedTemplateKey === 'welcome' && (
+                  <div className="form-group">
+                    <label>Role</label>
+                    <select className="form-control" value={templateRole} onChange={e => setTemplateRole(e.target.value)}>
+                      <option value="full_time">Full Time</option>
+                      <option value="intern">Intern</option>
+                      <option value="consultant">Consultant</option>
+                    </select>
+                  </div>
+                )}
+                <div className="form-group">
+                  <label>Subject</label>
+                  <input type="text" className="form-control" value={templateEditor.subject}
+                    onChange={e => setTemplateEditor({ ...templateEditor, subject: e.target.value })} />
+                </div>
+
+                {selectedTemplateKey === 'welcome' ? (
+                  <>
+                    <div className="form-group">
+                      <label>Greeting</label>
+                      <input type="text" className="form-control" value="Dear <Employee Name>," disabled style={{ opacity: 0.6 }} />
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Always automatic — the employee's real name is inserted here.</small>
+                    </div>
+                    <div className="form-group">
+                      <label>Body</label>
+                      <textarea className="form-control" rows={6} value={templateSections.body}
+                        onChange={e => setTemplateSections({ ...templateSections, body: e.target.value })}
+                        placeholder="Write your message in plain text. Leave a blank line between paragraphs." />
+                    </div>
+                    <div className="form-group">
+                      <label>Verification Link Button Text</label>
+                      <input type="text" className="form-control" value={templateSections.cta_label}
+                        onChange={e => setTemplateSections({ ...templateSections, cta_label: e.target.value })}
+                        placeholder="e.g. Verify My Email" />
+                      <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>Leave blank to omit the button entirely.</small>
+                    </div>
+                    <div className="form-group">
+                      <label>Closing Note</label>
+                      <textarea className="form-control" rows={2} value={templateSections.closing_note}
+                        onChange={e => setTemplateSections({ ...templateSections, closing_note: e.target.value })}
+                        placeholder="e.g. If you have any questions, reach out to HR." />
+                    </div>
+                    <div className="form-group">
+                      <label>Salutation</label>
+                      <textarea className="form-control" rows={2} value={templateSections.salutation}
+                        onChange={e => setTemplateSections({ ...templateSections, salutation: e.target.value })}
+                        placeholder={"e.g. Best regards,\nHR Team"} />
+                    </div>
+                  </>
+                ) : (
+                  <div className="form-group">
+                    <label>Email Content</label>
+                    <textarea className="form-control" rows={12} style={{ fontFamily: 'monospace', fontSize: '0.85rem' }}
+                      value={templateEditor.html_body}
+                      onChange={e => setTemplateEditor({ ...templateEditor, html_body: e.target.value })} />
+                    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+                      Write plain text — paragraphs (separated by a blank line) are formatted automatically. Available placeholders: {TEMPLATE_PLACEHOLDERS[selectedTemplateKey] || 'none'}
+                    </small>
+                  </div>
+                )}
+
+                {templateMsg && (
+                  <p style={{ fontSize: '0.85rem', color: templateMsg.includes('success') ? '#22c55e' : '#ef4444', marginBottom: '1rem' }}>{templateMsg}</p>
+                )}
+                <div style={{ display: 'flex', gap: '0.75rem' }}>
+                  <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+                    onClick={() => setSelectedTemplateKey(null)}>
+                    ← Back
+                  </button>
+                  <button type="button" className="btn" style={{ background: 'transparent', border: '1px solid var(--border)' }}
+                    onClick={previewTemplate}>
+                    Preview
+                  </button>
+                  <button className="btn" onClick={saveTemplate}>
+                    Save Template
+                  </button>
+                </div>
+              </div>
+            )}
           </div>
         </div>
       )}
-    </div>
-  </div>
-)}
 
       {/* ── Sidebar ── */}
       <div className="sidebar">
@@ -506,11 +588,11 @@ const previewTemplate = () => {
             Change Password
           </button>
           <button className="nav-item" onClick={() => { setShowEmailSettings(true); loadEmailSettings(); }} style={{ color: 'var(--text-muted)' }}>
-             Email Settings
+            Email Settings
           </button>
           <button className="nav-item" onClick={() => { setShowEmailTemplates(true); setSelectedTemplateKey(null); loadTemplatesList(); }} style={{ color: 'var(--text-muted)' }}>
-  Email Templates
-</button>
+            Email Templates
+          </button>
           <button className="nav-item" onClick={handleLogout} style={{ color: '#ef4444' }}>
             <LogOut size={20} /> Sign Out
           </button>
@@ -602,11 +684,11 @@ const previewTemplate = () => {
                       </td>
                       <td style={{ padding: '1rem' }}>
                         <button
-  onClick={() => setEditingEmployee(emp)}
-  title="Edit Employee"
-  style={{ padding: '0.3rem 0.5rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '0.4rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px' }}>
-  <Edit2 size={14} />
-</button>
+                          onClick={() => setEditingEmployee(emp)}
+                          title="Edit Employee"
+                          style={{ padding: '0.3rem 0.5rem', background: 'rgba(99,102,241,0.1)', color: '#6366f1', border: '1px solid #6366f1', borderRadius: '0.4rem', cursor: 'pointer', display: 'inline-flex', alignItems: 'center', justifyContent: 'center', width: '28px', height: '28px' }}>
+                          <Edit2 size={14} />
+                        </button>
                         <div style={{ display: 'flex', gap: '0.4rem', flexWrap: 'wrap' }}>
                           <button onClick={async () => { if (!window.confirm(`Move ${emp.name} to next module?`)) return; try { await api.post(`/employees/${emp.id}/control?action=next`); fetchData(); } catch (err) { alert('Failed: ' + (err.response?.data?.detail || err.message)); } }}
                             style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(59,130,246,0.1)', color: '#3b82f6', border: '1px solid #3b82f6', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>Next →</button>
@@ -627,17 +709,17 @@ const previewTemplate = () => {
                             {emp.is_archived ? 'Unarchive' : 'Archive'}
                           </button>
                           <button onClick={async () => {
-  if (!window.confirm(`Are you sure you want to permanently delete ${emp.name}? This cannot be undone.`)) return;
-  try {
-    await api.delete(`/employees/${emp.id}`);
-    await fetchData(showArchived);
-  } catch (err) {
-    alert('Failed: ' + (err.response?.data?.detail || err.message));
-  }
-}}
-  style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(239,68,68,0.15)', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
-  Delete
-</button>
+                            if (!window.confirm(`Are you sure you want to permanently delete ${emp.name}? This cannot be undone.`)) return;
+                            try {
+                              await api.delete(`/employees/${emp.id}`);
+                              await fetchData(showArchived);
+                            } catch (err) {
+                              alert('Failed: ' + (err.response?.data?.detail || err.message));
+                            }
+                          }}
+                            style={{ padding: '0.3rem 0.5rem', fontSize: '0.72rem', background: 'rgba(239,68,68,0.15)', color: '#dc2626', border: '1px solid #dc2626', borderRadius: '0.4rem', cursor: 'pointer', whiteSpace: 'nowrap' }}>
+                            Delete
+                          </button>
                         </div>
                       </td>
                     </tr>
