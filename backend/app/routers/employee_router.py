@@ -114,7 +114,7 @@ async def create_employee(
                 shutil.copyfileobj(f.file, out)
             saved_paths.append(dest_path)
 
-    if not saved_paths and include_default_sop and role == models.RoleEnum.full_time:
+    if include_default_sop and role == models.RoleEnum.full_time:
         settings = db.query(models.EmailSettings).first()
         if settings and settings.default_sop_path:
             saved_paths.append(settings.default_sop_path)
