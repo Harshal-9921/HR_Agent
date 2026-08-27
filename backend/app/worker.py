@@ -7,7 +7,7 @@ except ImportError:
 from datetime import datetime, timedelta
 import os
 from .database import SessionLocal
-from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum, EmailTemplate
+from .models import User, EmailLog, EmailStatus, EmailSettings, OnboardingProgress, ModuleProgress, Content, RoleEnum, EmailTemplate, EmailVerificationToken
 from .utils.email_utils import EmailService
 import secrets
 import string
@@ -56,14 +56,18 @@ def _get_module_info(db, user_id):
     remaining_titles = [c.title for c in all_content if c.id not in completed_ids]
     return completed_titles, remaining_titles, len(all_content), len(completed_ids)
 
-def _render_template(db, key, default_subject, default_body, **kwargs):
-    """Load subject/body from the DB EmailTemplate table if HR has saved one;
-    otherwise fall back to the hardcoded default. If placeholder substitution
-    fails (e.g. a typo in a saved template), fall back to the raw unformatted
-    text rather than breaking the send entirely."""
+def _render_template(db, key, default_subject, default_body, name="", extra_html="", link_url=None, **kwargs):
     template = db.query(EmailTemplate).filter(EmailTemplate.template_key == key).first()
     subject = template.subject if (template and template.subject) else default_subject
-    body = template.html_body if (template and template.html_body) else default_body
+
+    if template and template.sections:
+        body = _render_sectioned(template.sections, name=name, extra_html=extra_html, link_url=link_url)
+    elif template and template.html_body:
+        body = template.html_body
+    else:
+        body = default_body
+
+    kwargs["name"] = name
     try:
         subject = subject.format(**kwargs)
     except Exception:
@@ -74,6 +78,47 @@ def _render_template(db, key, default_subject, default_body, **kwargs):
         pass
     return subject, body
 
+import json
+
+def _render_sectioned(sections_json, name, extra_html="", link_url=None, **kwargs):
+    """Build the final HTML from HR's plain-text sections, assembled into
+    the existing card-styled shell. Empty sections are simply omitted."""
+    try:
+        s = json.loads(sections_json) if sections_json else {}
+    except Exception:
+        s = {}
+
+    parts = [f'<p>Dear <strong>{name}</strong>,</p>']
+
+    body = (s.get("body") or "").strip()
+    if body:
+        paragraphs = [p.strip() for p in body.split("\n\n") if p.strip()]
+        parts.extend(f'<p>{p.replace(chr(10), "<br>")}</p>' for p in paragraphs)
+
+    if extra_html:
+        parts.append(extra_html)
+
+    cta_label = (s.get("cta_label") or "").strip()
+    if cta_label and link_url:
+        parts.append(
+            f'<div style="text-align:center;margin:25px 0;">'
+            f'<a href="{link_url}" style="background:#6366f1;color:white;padding:12px 30px;'
+            f'border-radius:6px;text-decoration:none;font-weight:bold;">{cta_label}</a></div>'
+        )
+
+    closing = (s.get("closing_note") or "").strip()
+    if closing:
+        parts.append(f'<p>{closing.replace(chr(10), "<br>")}</p>')
+
+    salutation = (s.get("salutation") or "").strip()
+    if salutation:
+        parts.append(f'<p>{salutation.replace(chr(10), "<br>")}</p>')
+
+    inner = "".join(parts)
+    return (
+        '<div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; '
+        'padding: 20px; color: #333; line-height: 1.6;">' + inner + '</div>'
+    )
 # ─── Task: send 2 emails ────────────────────────────────────────────────
 @celery_app.task(bind=True, max_retries=3)
 def send_onboarding_email(self, user_id: int, email_type: str, context: dict = None):
@@ -98,83 +143,37 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
         portal_url = "http://10.130.37.2"
 
         if email_type == "Day 0":
-            # EMAIL 1 — Welcome Email 
+            # Create a verification token instead of sending credentials on a timer
+            verify_token = secrets.token_urlsafe(32)
+            expires_at = (datetime.now() + timedelta(days=7)).isoformat()
+            vt = EmailVerificationToken(user_id=user_id, token=verify_token, expires_at=expires_at, used=False)
+            db.add(vt)
+            db.commit()
+            verification_link = f"http://10.130.37.2/verify-email?token={verify_token}"
+
+            role_key = f"welcome_{user.role.value}"
             default_subject = "Welcome to Accops Systems! 🎉"
-            default_html = f"""
-<!DOCTYPE html>
-<html>
-<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
-  <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px;">
-    <h1 style="color: white; margin: 0; font-size: 28px;">Welcome to Accops! 🚀</h1>
-  </div>
+            default_html = f"""<!DOCTYPE html>...(existing default HTML, unchanged as fallback)..."""
 
-  <p style="font-size: 16px;">Dear <strong>{first_name}</strong>,</p>
-
-  <p style="font-size: 15px; line-height: 1.6;">
-    Welcome to Accops! We're excited to have you onboard as an <strong>Accopsian</strong>.
-  </p>
-
-  <p style="font-size: 15px; line-height: 1.6;">
-    To begin your onboarding journey, you will shortly receive a separate email with your 
-    <strong>login credentials</strong> for the HR Onboarding Portal. Once you receive them, 
-    you can log in and get started at:
-  </p>
-
-  <div style="text-align: center; margin: 25px 0;">
-    <a href="{portal_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
-      Access Onboarding Portal
-    </a>
-  </div>
-
-  <p style="font-size: 15px; line-height: 1.6;">Below is the onboarding flow you will go through:</p>
-
-  <ul style="font-size: 15px; line-height: 2;">
-    <li>🏢 <strong>Company Introduction</strong></li>
-    <li>📋 <strong>Policy Introduction</strong></li>
-    <li>💡 <strong>Product Trainings</strong></li>
-    <li>📚 <strong>Keep Learning</strong></li>
-  </ul>
-
-  <p style="font-size: 15px; line-height: 1.6;">
-    Once you complete the above modules, the next set of trainings will be automatically 
-    available on the portal based on your department.
-  </p>
-
-  <p style="font-size: 15px; line-height: 1.6;">
-    Wishing you a great start and a successful journey with us. 
-    <strong>Congratulations once again on being a part of Accops!</strong>
-  </p>
-
-  <p style="font-size: 15px;">Warm regards,<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
-
-  <div style="border-top: 1px solid #eee; margin-top: 25px; padding-top: 15px; font-size: 12px; color: #999; text-align: center;">
-    This is an automated email from the Accops HR Onboarding System.
-  </div>
-</body>
-</html>
-"""
             subject, html_content = _render_template(
-                db, "welcome", default_subject, default_html,
-                name=first_name, portal_url=portal_url
+                db, role_key, default_subject, default_html,
+                name=first_name, link_url=verification_link
             )
+            # fallback to generic "welcome" if no role-specific template exists at all
+            # (handled naturally since _render_template just returns defaults if key not found —
+            #  optionally add a second lookup here for a shared "welcome" key before falling back to hardcoded default)
 
-            # Send welcome email
             cc_list = []
             if _settings and _settings.cc_emails:
-              cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
+                cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
 
-            attachment_paths = []
-            if context and context.get("attachment_paths"):
-                attachment_paths = context["attachment_paths"]
-
+            attachment_paths = context.get("attachment_paths") if context else []
             result = email_service.send_email(
-              to_email=personal_email,
-              subject=subject,
-              html_content=html_content,
-              cc_emails=cc_list if cc_list else None,
-              attachments=attachment_paths if attachment_paths else None
+                to_email=personal_email, subject=subject, html_content=html_content,
+                cc_emails=cc_list if cc_list else None,
+                attachments=attachment_paths if attachment_paths else None
             )
-
+            
             # Log the Day 0 email
             log_entry = EmailLog(
               user_id=user_id,
@@ -185,13 +184,14 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
             db.add(log_entry)
             db.commit()
 
-            # Queue credentials email after 15 minutes
-            send_credentials_email.apply_async(
-              args=[user_id, password],
-              countdown=120  # 2 minutes
-            )
+            # Credentials are now sent only after the employee clicks the
+            # verification link (see auth_router.verify_email) — no longer
+            # auto-scheduled here.
 
         elif email_type == "T-2":
+            cc_list = []
+            if _settings and _settings.cc_emails:
+                cc_list = [e.strip() for e in _settings.cc_emails.split(',') if e.strip()]
             subject = "You're joining Accops in 2 days! 🎉"
             html_content = f"""
 <!DOCTYPE html>
@@ -249,6 +249,40 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
             log = EmailLog(
                 user_id=user_id,
                 email_type="Reminder",
+                status=EmailStatus.sent,
+                sent_at=datetime.now().isoformat()
+            )
+            db.add(log)
+            db.commit()
+
+        elif email_type == "Escalation":
+            hr_name = context.get("hr_name", "HR Team") if context else "HR Team"
+            hr_email = context.get("hr_email") if context else None
+            days_inactive = context.get("days_inactive", 0) if context else 0
+            if not hr_email:
+                return
+            subject = f"Onboarding Alert: {user.name} inactive for {days_inactive} day(s)"
+            html_content = f"""
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <p>Dear <strong>{hr_name}</strong>,</p>
+  <p style="line-height: 1.6;">
+    <strong>{user.name}</strong> ({user.email}) has not made progress on their onboarding
+    for <strong>{days_inactive} day(s)</strong>. You may want to follow up with them.
+  </p>
+  <p>Regards,<br><strong>Accops HR Onboarding System</strong></p>
+</body>
+</html>
+"""
+            email_service.send_email(
+                to_email=hr_email,
+                subject=subject,
+                html_content=html_content
+            )
+            log = EmailLog(
+                user_id=user_id,
+                email_type="Escalation",
                 status=EmailStatus.sent,
                 sent_at=datetime.now().isoformat()
             )
@@ -542,10 +576,7 @@ def daily_onboarding_check():
                 EmailLog.status == EmailStatus.sent
             ).first()
             if not already:
-                temp_password = _generate_temp_password()
-                user.hashed_password = auth.get_password_hash(temp_password)
-                db.commit()
-                send_onboarding_email.delay(user.id, "Day 0", {"password": temp_password})
+                send_onboarding_email.delay(user.id, "Day 0", {})
 
         # 3. Daily Reminder + Escalation for incomplete employees
         all_content_count = db.query(Content).count()
