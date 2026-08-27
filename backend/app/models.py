@@ -144,3 +144,12 @@ class EmailTemplate(Base):
     html_body = Column(String, nullable=True)
     updated_at = Column(String, nullable=True)
     updated_by = Column(Integer, ForeignKey("users.id"), nullable=True)
+    sections = Column(String, nullable=True)  # JSON: {"body": "...", "cta_label": "...", "closing_note": "...", "salutation": "...")
+
+class EmailVerificationToken(Base):
+    __tablename__ = "email_verification_tokens"
+    id = Column(Integer, primary_key=True, index=True)
+    user_id = Column(Integer, index=True)
+    token = Column(String, unique=True, index=True)
+    expires_at = Column(String)
+    used = Column(Boolean, default=False)
