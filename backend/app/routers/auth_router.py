@@ -178,11 +178,12 @@ def get_preview_token(
 @router.post("/verify-email")
 def verify_email(token: str, db: Session = Depends(database.get_db)):
     from datetime import datetime
-    from ..models import EmailVerificationToken
+    from .. import auth
+    from ..worker import send_credentials_email, _generate_temp_password
 
-    record = db.query(EmailVerificationToken).filter(
-        EmailVerificationToken.token == token,
-        EmailVerificationToken.used == False
+    record = db.query(models.EmailVerificationToken).filter(
+        models.EmailVerificationToken.token == token,
+        models.EmailVerificationToken.used == False
     ).first()
     if not record:
         raise HTTPException(status_code=400, detail="Invalid or expired verification link")
@@ -192,9 +193,6 @@ def verify_email(token: str, db: Session = Depends(database.get_db)):
     user = db.query(models.User).filter(models.User.id == record.user_id).first()
     if not user:
         raise HTTPException(status_code=404, detail="User not found")
-
-    from ..worker import send_credentials_email, _generate_temp_password
-    from . import auth
 
     temp_password = _generate_temp_password()
     user.hashed_password = auth.get_password_hash(temp_password)
