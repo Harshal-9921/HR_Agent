@@ -174,3 +174,57 @@ def get_preview_token(
         "demo_email": demo_user.email,
         "demo_name": demo_user.name
     }
+
+@router.post("/verify-email")
+def verify_email(token: str, db: Session = Depends(database.get_db)):
+    record = db.query(models.EmailVerificationToken).filter(
+        models.EmailVerificationToken.token == token,
+        models.EmailVerificationToken.used == False
+    ).first()
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+    if datetime.fromisoformat(record.expires_at) < datetime.now():
+        raise HTTPException(status_code=400, detail="Verification link has expired")
+
+    user = db.query(models.User).filter(models.User.id == record.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from ..worker import generate_random_password_for_verification, send_credentials_email
+    import string, secrets
+    temp_password = ''.join(secrets.choice(string.ascii_letters + string.digits + "!@#$%^*()-_=+") for _ in range(12))
+    user.hashed_password = auth.get_password_hash(temp_password)
+    record.used = True
+    db.commit()
+
+    send_credentials_email.delay(user.id, temp_password)
+    return {"message": "Email verified! Your credentials are on the way."}
+
+@router.post("/verify-email")
+def verify_email(token: str, db: Session = Depends(database.get_db)):
+    from datetime import datetime
+    from ..models import EmailVerificationToken
+
+    record = db.query(EmailVerificationToken).filter(
+        EmailVerificationToken.token == token,
+        EmailVerificationToken.used == False
+    ).first()
+    if not record:
+        raise HTTPException(status_code=400, detail="Invalid or expired verification link")
+    if datetime.fromisoformat(record.expires_at) < datetime.now():
+        raise HTTPException(status_code=400, detail="Verification link has expired")
+
+    user = db.query(User).filter(User.id == record.user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    from ..worker import send_credentials_email, _generate_temp_password
+    from . import auth
+
+    temp_password = _generate_temp_password()
+    user.hashed_password = auth.get_password_hash(temp_password)
+    record.used = True
+    db.commit()
+
+    send_credentials_email.delay(user.id, temp_password)
+    return {"message": "Email verified! Your credentials are on the way."}
