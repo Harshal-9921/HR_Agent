@@ -66,6 +66,8 @@ class Content(Base):
     is_intro = Column(Boolean, default=False)
     is_enabled = Column(Boolean, default=True)
     visible_departments = Column(String, nullable=True)  # comma-separated, e.g. "Engineering,IT" or NULL = all
+    is_keka = Column(Boolean, default=False)
+    role_visibility = Column(String, nullable=True)  # comma-separated roles, e.g. "full_time,consultant" or NULL = all roles  # comma-separated, e.g. "Engineering,IT" or NULL = all
 
 class MCQ(Base):
     __tablename__ = "mcqs"
