@@ -33,13 +33,20 @@ def get_all_content(
         return all_content
     visible = []
     for c in all_content:
-        if not c.visible_departments:
+        dept_ok = True
+        if c.visible_departments:
+            allowed_depts = [d.strip() for d in c.visible_departments.split(",")]
+            dept_ok = current_user.department in allowed_depts
+
+        role_ok = True
+        if c.role_visibility:
+            allowed_roles = [r.strip() for r in c.role_visibility.split(",")]
+            role_ok = current_user.role.value in allowed_roles
+
+        if dept_ok and role_ok:
             visible.append(c)
-        else:
-            allowed = [d.strip() for d in c.visible_departments.split(",")]
-            if current_user.department in allowed:
-                visible.append(c)
     return visible
+
 @router.post("/", response_model=schemas.ContentResponse)
 def create_content(
     data: schemas.ContentCreate,
@@ -437,6 +444,11 @@ def delete_content(
         raise HTTPException(
             status_code=400,
             detail="Introduction module cannot be deleted"
+        )
+    if content.is_keka:
+        raise HTTPException(
+            status_code=400,
+            detail="Keka Acknowledgement cannot be deleted"
         )
 
     db.delete(content)

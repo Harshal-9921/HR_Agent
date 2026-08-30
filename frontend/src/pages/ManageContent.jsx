@@ -20,13 +20,18 @@ const DEPARTMENTS = [
   'Customer Success'
 ];
 
+const ROLES = [
+  { value: 'full_time', label: 'Full Time' },
+  { value: 'intern', label: 'Intern' },
+  { value: 'consultant', label: 'Consultant' },
+];
 
 const ManageContent = () => {
   const [contents, setContents] = useState([]);
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContent, setEditingContent] = useState(null);
   const [newContent, setNewContent] = useState({
-  title: '', description: '', content_type: 'video', file_url: '', order: 0, visible_departments: ''
+  title: '', description: '', content_type: 'video', file_url: '', order: 0, visible_departments: '', is_keka: false
 });
   const [editingMcq, setEditingMcq] = useState(null); // { contentId, mcq }
   const [mcqs, setMcqs] = useState({}); // content_id -> list of mcqs
@@ -37,6 +42,8 @@ const ManageContent = () => {
   const [selectedDepts, setSelectedDepts] = useState([]);
   const [allDepts, setAllDepts] = useState(true);
   const navigate = useNavigate();
+  const [allRoles, setAllRoles] = useState(true);
+const [selectedRoles, setSelectedRoles] = useState([]);
 const [uploadingMcqs, setUploadingMcqs] = useState(null); // content_id currently uploading
 const [uploadResult, setUploadResult] = useState(null); // { contentId, created, errors }
   
@@ -68,9 +75,10 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
   const handleAddContent = async (e) => {
   e.preventDefault();
   try {
-    const payload = {
+      const payload = {
       ...newContent,
-      visible_departments: allDepts ? null : selectedDepts.join(',')
+      visible_departments: allDepts ? null : selectedDepts.join(','),
+      role_visibility: allRoles ? null : selectedRoles.join(',')
     };
     if (editingContent) {
       await api.put(`/content/${editingContent.id}`, payload);
@@ -79,9 +87,11 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
     }
     setShowAddModal(false);
     setEditingContent(null);
-    setNewContent({ title: '', description: '', content_type: 'video', file_url: '', order: contents.length, visible_departments: '' });
+    setNewContent({ title: '', description: '', content_type: 'video', file_url: '', order: contents.length, visible_departments: '', is_keka: false });
     setAllDepts(true);
     setSelectedDepts([]);
+    setAllRoles(true);
+    setSelectedRoles([]);
     fetchContents();
   } catch (err) {
     alert('Error: ' + err.message);
@@ -243,9 +253,11 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
           </div>
           <button className="btn" style={{ width: 'auto' }} onClick={() => {
   setEditingContent(null);
-  setNewContent({ title: '', description: '', content_type: 'video', file_url: '', order: contents.length, visible_departments: '' });
+  setNewContent({ title: '', description: '', content_type: 'video', file_url: '', order: contents.length, visible_departments: '', is_keka: false });
   setAllDepts(true);
   setSelectedDepts([]);
+  setAllRoles(true);
+  setSelectedRoles([]);
   setShowAddModal(true);
 }}>
   <Plus size={20} style={{ marginRight: '0.5rem' }} /> Add Content
@@ -262,8 +274,13 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
                     {item.content_type === 'video' ? <Video size={24} color="#6366f1" /> : <FileText size={24} color="#10b981" />}
                   </div>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem' }}>
   <h3 style={{ fontSize: '1.1rem', fontWeight: '600' }}>{item.is_intro ? '🔒 Introduction' : item.title}</h3>
+  {item.is_keka && (
+    <span style={{ fontSize: '0.72rem', fontWeight: '600', color: '#f59e0b', background: 'rgba(245,158,11,0.1)', padding: '0.2rem 0.6rem', borderRadius: '1rem', border: '1px solid rgba(245,158,11,0.3)' }}>
+      Acknowledgement Form
+    </span>
+  )}
   {!item.is_intro && (
     <button
       onClick={async () => {
@@ -296,6 +313,11 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
     Visible to: {item.visible_departments.split(',').join(', ')}
   </p>
 )}
+{item.role_visibility && (
+  <p style={{ fontSize: '0.72rem', color: '#f59e0b', marginTop: '0.25rem' }}>
+    Roles: {item.role_visibility.split(',').join(', ')}
+  </p>
+)}
                   </div>
                 </div>
                 <div style={{ display: 'flex', gap: '0.75rem', alignItems: 'center' }}>
@@ -309,7 +331,7 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
                       <button className="btn-icon" title="Move Down" onClick={() => handleReorder(item.id, 'down')}><ArrowDown size={16} /></button>
                     </>
                   )}
-                  <button className="btn-icon" onClick={() => {
+                      <button className="btn-icon" onClick={() => {
   setEditingContent(item);
   setNewContent({
   title: item.title || '',
@@ -317,7 +339,8 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
   content_type: item.content_type || 'video',
   file_url: item.file_url || '',
   order: item.order || 0,
-  visible_departments: item.visible_departments || ''
+  visible_departments: item.visible_departments || '',
+  is_keka: item.is_keka || false
 });
   if (item.visible_departments) {
     setAllDepts(false);
@@ -326,14 +349,22 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
     setAllDepts(true);
     setSelectedDepts([]);
   }
+  if (item.role_visibility) {
+    setAllRoles(false);
+    setSelectedRoles(item.role_visibility.split(','));
+  } else {
+    setAllRoles(true);
+    setSelectedRoles([]);
+  }
   setShowAddModal(true);
 }}><Edit2 size={18} /></button>
-                  {!item.is_intro && (
+                  {!item.is_intro && !item.is_keka && (
                     <button className="btn-icon" style={{ color: '#ef4444' }} onClick={() => handleDeleteContent(item.id)}><Trash2 size={18} /></button>
                   )}
                 </div>
               </div>
               
+              {!item.is_keka && (
               <div style={{ padding: '1.5rem' }}>
                 <div className="flex-between" style={{ marginBottom: '1rem', flexWrap: 'wrap', gap: '0.5rem' }}>
                   <h4 style={{ fontSize: '0.9rem', fontWeight: '600', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
@@ -406,6 +437,7 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
                   ))}
                 </div>
               </div>
+              )}
             </div>
           ))}
         </div>
@@ -425,6 +457,7 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
                 <label>Description</label>
                 <textarea className="form-control" rows="2" value={newContent.description} onChange={e => setNewContent({...newContent, description: e.target.value})} />
               </div>
+                            {!newContent.is_keka && (
               <div className="form-group">
   <label>Type</label>
   <select className="form-control" value={newContent.content_type} onChange={e => setNewContent({...newContent, content_type: e.target.value})}>
@@ -432,6 +465,8 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
     <option value="pdf">PDF Document</option>
   </select>
 </div>
+)}
+{!newContent.is_keka && (
 <div className="form-group">
   <label>File URL or Upload</label>
   <div style={{ display: 'flex', gap: '0.5rem' }}>
@@ -452,6 +487,12 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
 />
   </div>
 </div>
+)}
+{newContent.is_keka && (
+  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem' }}>
+    This is the Keka Acknowledgement step. Only title, description, and visibility can be changed here.
+  </p>
+)}
 <div className="form-group">
   <label>Visible To</label>
   <div style={{ marginBottom: '0.5rem' }}>
@@ -480,6 +521,39 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
             }}
           />
           {dept}
+        </label>
+      ))}
+    </div>
+    )}
+</div>
+<div className="form-group">
+  <label>Visible To (Roles)</label>
+  <div style={{ marginBottom: '0.5rem' }}>
+    <label style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', cursor: 'pointer', fontSize: '0.9rem' }}>
+      <input
+        type="checkbox"
+        checked={allRoles}
+        onChange={(e) => {
+          setAllRoles(e.target.checked);
+          if (e.target.checked) setSelectedRoles([]);
+        }}
+      />
+      All Roles
+    </label>
+  </div>
+  {!allRoles && (
+    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '0.5rem', padding: '0.75rem', background: 'rgba(255,255,255,0.03)', borderRadius: '0.5rem' }}>
+      {ROLES.map(r => (
+        <label key={r.value} style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', fontSize: '0.85rem', cursor: 'pointer' }}>
+          <input
+            type="checkbox"
+            checked={selectedRoles.includes(r.value)}
+            onChange={(e) => {
+              if (e.target.checked) setSelectedRoles([...selectedRoles, r.value]);
+              else setSelectedRoles(selectedRoles.filter(x => x !== r.value));
+            }}
+          />
+          {r.label}
         </label>
       ))}
     </div>
