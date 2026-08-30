@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Check, Loader2 } from 'lucide-react';
 import OnboardingModule from '../components/OnboardingModule';
-import DataCollection from '../components/DataCollection';
+import AcknowledgementForm from '../components/DataCollection';
 import CompletionScreen from '../components/CompletionScreen';
 import api from '../api';
 
@@ -29,71 +29,73 @@ const OnboardingFlow = () => {
     loadData();
   }, []);
 
- const loadData = async () => {
-  try {
-    const [contentRes, progressRes] = await Promise.all([
-      api.get('/content/'),
-      api.get('/content/my-progress'),
-    ]);
-
-    const allContents = contentRes.data.filter(c => c.is_enabled !== false);
-    const completedSet = progressRes.data.filter(p => p.completed).map(p => p.content_id);
-    const doneIds = new Set(completedSet);
-
-    setContents(allContents);
-    setCompletedIds(doneIds);
-
-    let ackDone = false;
+  const loadData = async () => {
     try {
-      await api.get('/data/my-acknowledgement');
-      ackDone = true;
-    } catch {
-      ackDone = false;
-    }
+      const [contentRes, progressRes] = await Promise.all([
+        api.get('/content/'),
+        api.get('/content/my-progress'),
+      ]);
 
-    if (!ackDone) {
-      setCurrentStep(1);
-    } else {
-      // Find the first NOT-completed module by content id, not by stale index
-      let resumeStep = allContents.length + 2; // default: all done -> completion screen
+      const allContents = contentRes.data.filter(c => c.is_enabled !== false);
+      const completedSet = progressRes.data.filter(p => p.completed).map(p => p.content_id);
+      const doneIds = new Set(completedSet);
+
+      // Keka's completion is tracked separately (EmployeeSubmission), not ModuleProgress.
+      // If a Keka item exists in this employee's (role-filtered) content list, check it independently.
+      const kekaItem = allContents.find(c => c.is_keka);
+      if (kekaItem) {
+        try {
+          await api.get('/data/my-acknowledgement');
+          doneIds.add(kekaItem.id);
+        } catch {
+          // not acknowledged yet — leave it out of doneIds
+        }
+      }
+
+      setContents(allContents);
+      setCompletedIds(doneIds);
+
+      // Resume at the first not-yet-completed item (Keka or module, whichever comes first in order)
+      let resumeStep = allContents.length + 1; // default: everything done -> completion screen
       for (let i = 0; i < allContents.length; i++) {
         if (!doneIds.has(allContents[i].id)) {
-          resumeStep = i + 2; // step index for this exact module
+          resumeStep = i + 1;
           break;
         }
       }
       setCurrentStep(resumeStep);
+    } catch (err) {
+      console.error('Failed to load onboarding data:', err);
+    } finally {
+      setLoading(false);
     }
-  } catch (err) {
-    console.error('Failed to load onboarding data:', err);
-  } finally {
-    setLoading(false);
-  }
-};
+  };
+
   const handleNext = () => {
-  // Mark the module just completed (if currentStep falls in module range) as done locally
-  if (currentStep >= 2 && currentStep <= contents.length + 1) {
-    const justCompletedId = contents[currentStep - 2]?.id;
-    if (justCompletedId) {
-      setCompletedIds(prev => new Set(prev).add(justCompletedId));
+    // Mark the item just completed (Keka or module, at currentStep) as done locally
+    if (currentStep >= 1 && currentStep <= contents.length) {
+      const justCompletedId = contents[currentStep - 1]?.id;
+      if (justCompletedId) {
+        setCompletedIds(prev => new Set(prev).add(justCompletedId));
+      }
     }
-  }
-  const totalSteps = contents.length + 2;
-  setCurrentStep(prev => Math.min(prev + 1, totalSteps));
-};
-  // Step 1 = Acknowledgement, Steps 2..N+1 = Modules, Step N+2 = Completion
+    const totalSteps = contents.length + 1;
+    setCurrentStep(prev => Math.min(prev + 1, totalSteps));
+  };
+
+  // Steps 1..N = contents (Keka included, wherever HR has positioned it), Step N+1 = Completion
   const dynamicSteps = [
-    { id: 1, label: 'Acknowledgement' },
-    ...contents.map((c, i) => ({ id: i + 2, label: c.title })),
-    { id: contents.length + 2, label: 'Completion' },
+    ...contents.map((c, i) => ({ id: i + 1, label: c.is_keka ? 'Acknowledgement' : c.title })),
+    { id: contents.length + 1, label: 'Completion' },
   ];
   const totalSteps = dynamicSteps.length;
 
   const renderStepContent = () => {
-    if (currentStep === 1) {
-      return <DataCollection onNext={handleNext} />;
-    } else if (currentStep <= contents.length + 1) {
-      const content = contents[currentStep - 2];
+    if (currentStep <= contents.length) {
+      const content = contents[currentStep - 1];
+      if (content.is_keka) {
+        return <AcknowledgementForm onNext={handleNext} />;
+      }
       return (
         <OnboardingModule
           key={content.id}
@@ -167,8 +169,8 @@ const OnboardingFlow = () => {
             const isActive = step.id === currentStep;
             const isCompleted =
               step.id < currentStep ||
-              (step.id >= 2 && step.id <= contents.length + 1 &&
-                completedIds.has(contents[step.id - 2]?.id));
+              (step.id >= 1 && step.id <= contents.length &&
+                completedIds.has(contents[step.id - 1]?.id));
 
             return (
               <div key={step.id} style={{ display: 'flex', alignItems: 'flex-start', gap: '1rem', marginBottom: '1.5rem' }}>
@@ -199,7 +201,7 @@ const OnboardingFlow = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{completionPct}%</span>
             <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>
-              {completedIds.size}/{contents.length} modules
+              {completedIds.size}/{contents.length} steps
             </span>
           </div>
           <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
@@ -220,8 +222,8 @@ const OnboardingFlow = () => {
             const isActive = step.id === currentStep;
             const isCompleted =
               step.id < currentStep ||
-              (step.id >= 2 && step.id <= contents.length + 1 &&
-                completedIds.has(contents[step.id - 2]?.id));
+              (step.id >= 1 && step.id <= contents.length &&
+                completedIds.has(contents[step.id - 1]?.id));
 
             return (
               <React.Fragment key={step.id}>
