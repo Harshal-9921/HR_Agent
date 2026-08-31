@@ -139,3 +139,8 @@ class ReportSummary(BaseModel):
 class AlertEmailRequest(BaseModel):
     subject: str
     html_body: str
+
+class EmailTemplateUpdate(BaseModel):
+    subject: Optional[str] = None
+    html_body: Optional[str] = None
+    sections: Optional[dict] = None
