@@ -137,7 +137,3 @@ def update_template(
     db.commit()
     return {"message": "Template updated successfully"}
 
-class EmailTemplateUpdate(BaseModel):
-    subject: Optional[str] = None
-    html_body: Optional[str] = None
-    sections: Optional[dict] = None
