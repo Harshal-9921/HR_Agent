@@ -68,7 +68,7 @@ class Content(Base):
     visible_departments = Column(String, nullable=True)  # comma-separated, e.g. "Engineering,IT" or NULL = all
     is_keka = Column(Boolean, default=False)
     role_visibility = Column(String, nullable=True)  # comma-separated roles, e.g. "full_time,consultant" or NULL = all roles  # comma-separated, e.g. "Engineering,IT" or NULL = all
-
+    checkbox_label = Column(String, nullable=True)  # employee-facing checkbox text for Keka
 class MCQ(Base):
     __tablename__ = "mcqs"
     id = Column(Integer, primary_key=True, index=True)

@@ -42,8 +42,10 @@ class ContentBase(BaseModel):
     order: int = 0
     is_intro: bool = False
     is_enabled: bool = True   
-    visible_departments: Optional[str] = None 
-
+    visible_departments: Optional[str] = None
+    is_keka: bool = False
+    role_visibility: Optional[str] = None
+    checkbox_label: Optional[str] = None
 class ContentCreate(ContentBase):
     pass
 
@@ -52,7 +54,7 @@ class ContentResponse(ContentBase):
     is_intro: bool = False
     class Config:
         from_attributes = True
-
+    
 # MCQ Schemas
 class MCQBase(BaseModel):
     content_id: int

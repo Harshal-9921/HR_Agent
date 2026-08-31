@@ -78,7 +78,6 @@ def reorder_modules(
 
 
 @router.post("/complete-module", response_model=schemas.ModuleProgressResponse)
-@router.post("/complete-module", response_model=schemas.ModuleProgressResponse)
 def complete_module(
     data: schemas.ModuleProgressCreate,
     db: Session = Depends(get_db),
@@ -118,7 +117,7 @@ def complete_module(
         db.refresh(existing)
 
         if passed:
-            all_content_count = db.query(models.Content).count()
+            all_content_count = db.query(models.Content).filter(models.Content.is_keka == False).count()
             completed_count = db.query(models.ModuleProgress).filter(
                 models.ModuleProgress.user_id == current_user.id,
                 models.ModuleProgress.completed == True
@@ -152,7 +151,7 @@ def complete_module(
                 models.OnboardingProgress.user_id == current_user.id
             ).first()
             if onboarding:
-                all_content_count = db.query(models.Content).count()
+                all_content_count = db.query(models.Content).filter(models.Content.is_keka == False).count()
                 completed_count = db.query(models.ModuleProgress).filter(
                     models.ModuleProgress.user_id == current_user.id,
                     models.ModuleProgress.completed == True
@@ -194,6 +193,9 @@ def create_mcq(
     db: Session = Depends(get_db),
     current_user: models.User = Depends(auth.require_role([models.RoleEnum.hr, models.RoleEnum.admin]))
 ):
+    parent = db.query(models.Content).filter(models.Content.id == data.content_id).first()
+    if parent and parent.is_keka:
+        raise HTTPException(status_code=400, detail="MCQs cannot be added to the Keka Acknowledgement step")
     new_mcq = models.MCQ(**data.dict())
     db.add(new_mcq)
     db.commit()
@@ -239,6 +241,8 @@ async def bulk_upload_mcqs(
     content = db.query(models.Content).filter(models.Content.id == content_id).first()
     if not content:
         raise HTTPException(status_code=404, detail="Content module not found")
+    if content.is_keka:
+        raise HTTPException(status_code=400, detail="MCQs cannot be added to the Keka Acknowledgement step")
 
     filename = file.filename or ""
     file_bytes = await file.read()

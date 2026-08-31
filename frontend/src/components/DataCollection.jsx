@@ -2,11 +2,15 @@ import React, { useState } from 'react';
 import { CheckCircle, FileText } from 'lucide-react';
 import api from '../api';
 
-const AcknowledgementForm = ({ onNext }) => {
+const AcknowledgementForm = ({ content, onNext }) => {
   const [acknowledged, setAcknowledged] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const [submitted, setSubmitted] = useState(false);
+
+  const heading = content?.title || 'Document Acknowledgement';
+  const body = content?.description || 'Please confirm you have reviewed and accepted your onboarding documents.';
+  const checkboxText = content?.checkbox_label || 'I confirm that I have completed the required steps.';
 
   const handleSubmit = async () => {
     setLoading(true);
@@ -27,7 +31,7 @@ const AcknowledgementForm = ({ onNext }) => {
       <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', gap: '1rem' }}>
         <CheckCircle size={64} color="#10b981" />
         <h2 style={{ fontSize: '1.5rem' }}>Acknowledgement Submitted!</h2>
-        <p style={{ color: 'var(--text-muted)' }}>Thank you. Your onboarding is now complete.</p>
+        <p style={{ color: 'var(--text-muted)' }}>Thank you. You may now proceed.</p>
       </div>
     );
   }
@@ -36,13 +40,9 @@ const AcknowledgementForm = ({ onNext }) => {
     <div className="card" style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
       <div style={{ display: 'flex', alignItems: 'center', gap: '0.75rem', marginBottom: '0.5rem' }}>
         <FileText size={28} color="var(--primary-color)" />
-        <h2 style={{ fontSize: '1.5rem' }}>Document Acknowledgement</h2>
+        <h2 style={{ fontSize: '1.5rem' }}>{heading}</h2>
       </div>
-      <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>
-        Please read the following statement carefully and confirm your acknowledgement.
-      </p>
 
-      {/* Acknowledgement Statement Box */}
       <div style={{
         background: 'rgba(255,255,255,0.04)',
         border: '1px solid var(--border)',
@@ -50,19 +50,12 @@ const AcknowledgementForm = ({ onNext }) => {
         padding: '1.5rem',
         marginBottom: '2rem',
         lineHeight: '1.8',
-        fontSize: '0.95rem'
+        fontSize: '0.95rem',
+        whiteSpace: 'pre-wrap'
       }}>
-        <p style={{ marginBottom: '1rem' }}>Before beginning your induction programme, please confirm that you have completed the following on <strong>Keka</strong>:</p>
-        <ul style={{ paddingLeft: '1.5rem', display: 'flex', flexDirection: 'column', gap: '0.5rem' }}>
-          <li>Uploaded your Aadhaar Card / Government ID proof</li>
-          <li>Uploaded your PAN Card</li>
-          <li>Uploaded your Bank Account details / Cancelled cheque</li>
-          <li>Uploaded your Educational certificates</li>
-          <li>Filled and submitted all required compliance forms on Keka</li>
-        </ul>
+        {body}
       </div>
 
-      {/* Checkbox */}
       <label style={{
         display: 'flex',
         alignItems: 'flex-start',
@@ -82,7 +75,7 @@ const AcknowledgementForm = ({ onNext }) => {
           style={{ marginTop: '2px', width: '16px', height: '16px', cursor: 'pointer' }}
         />
         <span style={{ fontSize: '0.9rem', lineHeight: '1.5' }}>
-          I confirm that I have uploaded all required documents on Keka and they are ready for HR verification.
+          {checkboxText}
         </span>
       </label>
 

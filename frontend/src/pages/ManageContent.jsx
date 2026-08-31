@@ -31,7 +31,7 @@ const ManageContent = () => {
   const [showAddModal, setShowAddModal] = useState(false);
   const [editingContent, setEditingContent] = useState(null);
   const [newContent, setNewContent] = useState({
-  title: '', description: '', content_type: 'video', file_url: '', order: 0, visible_departments: '', is_keka: false
+  title: '', description: '', content_type: 'video', file_url: '', order: 0, visible_departments: '', is_keka: false, checkbox_label: ''
 });
   const [editingMcq, setEditingMcq] = useState(null); // { contentId, mcq }
   const [mcqs, setMcqs] = useState({}); // content_id -> list of mcqs
@@ -340,7 +340,8 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
   file_url: item.file_url || '',
   order: item.order || 0,
   visible_departments: item.visible_departments || '',
-  is_keka: item.is_keka || false
+  is_keka: item.is_keka || false,
+  checkbox_label: item.checkbox_label || ''
 });
   if (item.visible_departments) {
     setAllDepts(false);
@@ -489,9 +490,15 @@ const [uploadResult, setUploadResult] = useState(null); // { contentId, created,
 </div>
 )}
 {newContent.is_keka && (
-  <p style={{ fontSize: '0.8rem', color: 'var(--text-muted)', margin: '0.5rem 0 1rem' }}>
-    This is the Keka Acknowledgement step. Only title, description, and visibility can be changed here.
-  </p>
+  <div className="form-group">
+    <label>Checkbox Text</label>
+    <input type="text" className="form-control" value={newContent.checkbox_label || ''}
+      onChange={e => setNewContent({...newContent, checkbox_label: e.target.value})}
+      placeholder="I confirm that I have uploaded all required documents on Keka..." />
+    <small style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
+      Title above becomes the heading, Description becomes the body text shown to employees.
+    </small>
+  </div>
 )}
 <div className="form-group">
   <label>Visible To</label>

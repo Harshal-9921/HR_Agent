@@ -68,6 +68,7 @@ def _render_template(db, key, default_subject, default_body, name="", extra_html
         body = default_body
 
     kwargs["name"] = name
+    kwargs["link_url"] = link_url or ""
     try:
         subject = subject.format(**kwargs)
     except Exception:
@@ -153,7 +154,29 @@ def send_onboarding_email(self, user_id: int, email_type: str, context: dict = N
 
             role_key = f"welcome_{user.role.value}"
             default_subject = "Welcome to Accops Systems! 🎉"
-            default_html = f"""<!DOCTYPE html>...(existing default HTML, unchanged as fallback)..."""
+            default_html = """
+<!DOCTYPE html>
+<html>
+<body style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; color: #333;">
+  <div style="background: linear-gradient(135deg, #1a1a2e, #16213e); padding: 30px; border-radius: 10px; text-align: center; margin-bottom: 25px;">
+    <h1 style="color: white; margin: 0;">Welcome to Accops Systems! 🎉</h1>
+  </div>
+  <p>Dear <strong>{name}</strong>,</p>
+  <p style="line-height: 1.6;">
+    We're thrilled to have you join us. To get started with your onboarding, please verify your email address by clicking the button below.
+  </p>
+  <div style="text-align: center; margin: 25px 0;">
+    <a href="{link_url}" style="background: #6366f1; color: white; padding: 12px 30px; border-radius: 6px; text-decoration: none; font-size: 16px; font-weight: bold;">
+      Verify My Email
+    </a>
+  </div>
+  <p style="line-height: 1.6;">
+    Once verified, your login credentials will be sent to you shortly after in a separate email.
+  </p>
+  <p>Warm regards,<br><strong>HR Team</strong><br>Accops Systems Pvt. Ltd.</p>
+</body>
+</html>
+"""
 
             subject, html_content = _render_template(
                 db, role_key, default_subject, default_html,
@@ -579,7 +602,7 @@ def daily_onboarding_check():
                 send_onboarding_email.delay(user.id, "Day 0", {})
 
         # 3. Daily Reminder + Escalation for incomplete employees
-        all_content_count = db.query(Content).count()
+        all_content_count = db.query(Content).filter(Content.is_keka == False).count()
         if all_content_count == 0:
             print("No content modules yet — skipping reminder/escalation checks")
             db.close()
