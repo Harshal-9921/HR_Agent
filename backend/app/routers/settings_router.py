@@ -111,6 +111,7 @@ def get_template(
 class EmailTemplateUpdate(BaseModel):
     subject: Optional[str] = None
     html_body: Optional[str] = None
+    sections: Optional[dict] = None
 
 @router.put("/templates/{template_key}")
 def update_template(
