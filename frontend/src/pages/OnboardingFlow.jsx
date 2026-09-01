@@ -94,7 +94,7 @@ const OnboardingFlow = () => {
     if (currentStep <= contents.length) {
       const content = contents[currentStep - 1];
       if (content.is_keka) {
-        return <AcknowledgementForm onNext={handleNext} />;
+        return <AcknowledgementForm content={content} onNext={handleNext} />;
       }
       return (
         <OnboardingModule
@@ -124,7 +124,9 @@ const OnboardingFlow = () => {
     );
   }
 
-  const completionPct = contents.length > 0 ? Math.round((completedIds.size / contents.length) * 100) : 0;
+  const realModules = contents.filter(c => !c.is_keka);
+  const completedRealModules = realModules.filter(c => completedIds.has(c.id)).length;
+  const completionPct = realModules.length > 0 ? Math.round((completedRealModules / realModules.length) * 100) : 0;
 
   return (
     <div className="dashboard-layout" style={{ flexDirection: 'column' }}>
@@ -201,7 +203,7 @@ const OnboardingFlow = () => {
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.5rem' }}>
             <span style={{ fontSize: '1.4rem', fontWeight: 'bold' }}>{completionPct}%</span>
             <span style={{ fontSize: '0.8rem', color: '#f59e0b' }}>
-              {completedIds.size}/{contents.length} steps
+              {completedRealModules}/{realModules.length} modules
             </span>
           </div>
           <div style={{ width: '100%', height: '8px', background: 'var(--border)', borderRadius: '4px', overflow: 'hidden' }}>
