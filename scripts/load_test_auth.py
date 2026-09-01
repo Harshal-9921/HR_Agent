@@ -4,6 +4,7 @@ import time
 import urllib.request
 import urllib.error
 from concurrent.futures import ThreadPoolExecutor
+import urllib.parse
 
 BASE_URL = os.environ.get("LOAD_TEST_BASE_URL", "http://localhost")
 USERNAME = os.environ.get("LOAD_TEST_USERNAME")
@@ -16,11 +17,11 @@ if not USERNAME or not PASSWORD:
 
 def do_login():
     t0 = time.time()
-    data = json.dumps({"username": USERNAME, "password": PASSWORD}).encode()
+    data = urllib.parse.urlencode({"username": USERNAME, "password": PASSWORD}).encode()
     req = urllib.request.Request(
         f"{BASE_URL}/api/auth/login",
         data=data,
-        headers={"Content-Type": "application/json"},
+        headers={"Content-Type": "application/x-www-form-urlencoded"},
         method="POST",
     )
     try:
